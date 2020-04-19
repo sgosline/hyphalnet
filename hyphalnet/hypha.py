@@ -1,5 +1,5 @@
-import OmicsIntegrator
-import leidenalg
+import OmicsIntegrator as oi
+import leidenalg as la
 
 class hypha:
 
@@ -11,6 +11,7 @@ class hypha:
 
     def runForest(self):
         print('running forest')
+        oi.graph()
 
     def runCommunity(self):
         print('running community detection)')

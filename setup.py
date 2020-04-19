@@ -6,8 +6,8 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name="hyphalnet", # Replace with your own username
     version="0.0.1",
-    author="Sara Gosline\",
-    author_email"="sara.gosline@pnnl.gov",
+    author="Sara Gosline",
+    author_email="sara.gosline@pnnl.gov",
     description="A small example package",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -18,4 +18,4 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires)='>=3.6',
+    python_requires='>=3.6')
