@@ -1,6 +1,7 @@
 from igraph import *
 import leidenalg as la
 import pandas as pd
+import OmicsIntegrator as oi
 
 class hypha:
 
@@ -10,13 +11,29 @@ class hypha:
         self.proteins = proteinWeights
         self.interactome = interactome
         self.networks = {}
+        nodeSet = set()
         for pat in proteinWeights.keys():
-            self.networks[pat] =self._getSubnet(proteinWeights[pat].keys())
+            print('Running PCSF for patient'+pat)
+            pdf = pd.DataFrame(list(proteinWeights[pat].items()))
+            pdf.columns = ['name','prize']
+            graph  = self.interactome
+            graph._prepare_prizes(pdf)
+            verts, edges = graph.pcsf()
+            nodeSet.add(verts)
+            print('found ',len(verts),' vertices and ',len(edges),' edges for patient ',pat)
+            #     self.networks[pat] =self._getSubnet(proteinWeights[pat].keys())
+            forest, augmented_forest = graph.output_forest_as_networkx(verts, edges)
+            self.networks[pat] = forest
+
+    def makeGraph(gfile):
+        print('making single graph')
+        graph = oi.Graph(gfile)
+        return(graph)
 
     def _getSubnet(self,nodenames):
         """
         Searches for nodes in the interactome that have nodes of a specific name,
-        then returns subnetwork
+        then returns inferred subgraph, nothing fancy
         """
 
         nodelist=[]
@@ -26,9 +43,20 @@ class hypha:
             except ValueError:
                 print('Node '+n+' not found')
        # print("Reducing",len(nodenames),"proteins to",len(nodelist)," nodes")
-        return(self.interactome.subgraph(nodelist))
+        sg = self.interactome.subgraph(nodelist)
+        print("Subgraph has",len(sg.vs),"nodes")
+        return(sg)
+
+    def _getForest(self,nodeweights):
+        """
+        Uses the omics integrator package to build a weighted subgrpah, inferring
+        additional nodes and returning a larger subgraph on the interatome
+        """
+        #map nodes to interactome
+        #
 
     def runCommunity(self):
+        #first we have to create a union/interaction
         print('running community detection')
         optimizer = la.Optimiser()
         netlist = [self.networks[p] for p in self.networks.keys()]

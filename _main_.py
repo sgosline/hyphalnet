@@ -9,7 +9,6 @@ import argparse
 import hyphalnet as hypnet
 from hyphalnet.hypha import hypha as hyp
 from hyphalnet.pdcworkflow import pdcworkflow as pdc
-from igraph import Graph
 
 parser = argparse.ArgumentParser(description="""Get data from the proteomic /
                                  data commons and build community networks""")
@@ -24,7 +23,7 @@ def main():
     namemapper = hyp.mapHGNCtoNetwork()
 
     gfile='data/9606.protein.links.v11.0.txt'
-    g = Graph.Read_Ncol(gfile)
+    g = hyp.makeGraph(gfile)
 
     patVals={'brca':pdc.getProtsByPatient(bcData,namemapper),'luad':pdc.getProtsByPatient(lungData,namemapper),'coad':pdc.getProtsByPatient(colData,namemapper),'gbm':pdc.getProtsByPatient(gbmData,namemapper)}
 
@@ -34,7 +33,7 @@ def main():
     for key in patVals:
         h =  hyp(patVals[key],g)
         hyphae[key]= h
-        parts[key]= h.runCommunity()
+#        parts[key]= h.runCommunity()
 
     #now we have hyphae for each disease
 
