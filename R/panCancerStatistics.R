@@ -3,18 +3,8 @@
 library(dplyr)
 library(tidyr)
 library(ggfortify)
+source("R/pdcFileProcessing.R")
 
-#' do the tidying of the data to create a basic patient/protein log ratio model
-processSingleFile<-function(fname){
-  tab<-read.csv2(fname,sep='\t',header=T,stringsAsFactors = F,check.names=F)
-  unshared=grep('Unshared',colnames(tab))
-  if(length(unshared)>0)
-    tab<-tab[,-unshared]
-  
-  df<-tab%>%pivot_longer(-c(Gene,NCBIGeneID),names_to='Patient',values_to="logratio")
-  df
-  
-}
 
 
 #' plot means from values
@@ -52,7 +42,7 @@ distab2Matrix<-function(distab){
 }
 
 #'try to find predictive proteins using lasso regression
-#'@param dislist is a tidied datset of gene, logratio, and disease values
+#'@param distab is a tidied datset of gene, logratio, and disease values
 #'@return a tidied data frame of selected genes and the disease or which they are preidctive
 #'@export
 getSelectedProteins<-function(distab){
@@ -98,43 +88,32 @@ plotHeatmapOfProts<-function(distab,prots,prefix=''){
 #####Build strawman set of proteins that distinguish a class 
 #####Testing on ability to predict cancer subtype
 
-#First: read in files
 
-dislist<-list(BRCA=processSingleFile('data/CPTAC2_Breast_Prospective_Collection_BI_Proteome.tmt10.tsv'),
-              LUAD=processSingleFile('data/CPTAC3_Lung_Adeno_Carcinoma_Proteome.tmt10.tsv'),
-              GBM = processSingleFile('data/CPTAC3_Glioblastoma_Multiforme_Proteome.tmt11.tsv'),
-              COAD = processSingleFile('data/CPTAC2_Colon_Prospective_Collection_PNNL_Proteome.tmt10.tsv'))
 
-distab <-do.call(rbind,lapply(names(dislist),function(x) mutate(dislist[[x]],disease=x)))
-distab$logratio<-as.numeric(distab$logratio)
-distab<-subset(distab,!is.na(logratio))%>%
-  subset(!Patient%in%c('POOL Log Ratio','Authority','Organism','Locus','Description','Chromosome'))%>%
-  subset(!Gene%in%c('Mean','Median','StdDev'))
+testRegressionFromProteinAbundance<-function(){
+  distab<-readInAllFiles()
+  #lasso regression can select great protein markers
+  res1=getSelectedProteins(distab)
+  plotHeatmapOfProts(distab,res1$Gene,prefix='lassoSelectedProtFor')
+  p1<-plotPCAbyDisease(subset(distab,Gene%in%res1$Gene))
+  ggsave(p1,'lassoSelectedProts.png')
   
-
-
-#lasso regression can select great protein markers
-res1=getSelectedProteins(distab)
-plotHeatmapOfProts(distab,res1$Gene,prefix='lassoSelectedProtFor')
-p1<-plotPCAbyDisease(subset(distab,Gene%in%res1$Gene))
-ggsave(p1,'lassoSelectedProts.png')
-
-#now if we filter by quantile
-quantiled=distab%>%group_by(Patient)%>%
-  mutate(topThresh=quantile(logratio,0.99))%>%
-  mutate(highExp=logratio>topThresh)%>%
-  ungroup()
-
-qprots<-subset(quantiled,highExp==TRUE)%>%
-  select(Gene)%>%distinct()
-
-quantiled%>%
-  group_by(disease)%>%
-  summarize(numProts=n_distinct(Gene))
-
-res2=getSelectedProteins(subset(quantiled,Gene%in%qprots$Gene))
-plotHeatmapOfProts(distab,res2$Gene,prefix='lassoSelectedTopQuantProtFor')
-p2<-plotPCAbyDisease(subset(distab,Gene%in%res2$Gene))
-ggsave(p2,'lassoSelectedTopQuantProts.png')
-
+  #now if we filter by quantile
+  quantiled=distab%>%group_by(Patient)%>%
+    mutate(topThresh=quantile(logratio,0.99))%>%
+    mutate(highExp=logratio>topThresh)%>%
+    ungroup()
+  
+  qprots<-subset(quantiled,highExp==TRUE)%>%
+    select(Gene)%>%distinct()
+  
+  quantiled%>%
+    group_by(disease)%>%
+    summarize(numProts=n_distinct(Gene))
+  
+  res2=getSelectedProteins(subset(quantiled,Gene%in%qprots$Gene))
+  plotHeatmapOfProts(distab,res2$Gene,prefix='lassoSelectedTopQuantProtFor')
+  p2<-plotPCAbyDisease(subset(distab,Gene%in%res2$Gene))
+  ggsave(p2,'lassoSelectedTopQuantProts.png')
+  }
 #Fourth: Look they clsuter by subtype now!

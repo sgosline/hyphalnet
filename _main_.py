@@ -15,28 +15,39 @@ parser = argparse.ArgumentParser(description="""Get data from the proteomic /
 
 def main():
     args = parser.parse_args()
+
+    ##this is the framework for the PDC data parser.
     bcData = pdc.parsePDCfile('data/CPTAC2_Breast_Prospective_Collection_BI_Proteome.tmt10.tsv')
     lungData = pdc.parsePDCfile('data/CPTAC3_Lung_Adeno_Carcinoma_Proteome.tmt10.tsv')
     colData = pdc.parsePDCfile('data/CPTAC2_Colon_Prospective_Collection_PNNL_Proteome.tmt10.tsv')
     gbmData = pdc.parsePDCfile('data/CPTAC3_Glioblastoma_Multiforme_Proteome.tmt11.tsv')
 
-    namemapper = hyp.mapHGNCtoNetwork()
+    namemapper = None #hyp.mapHGNCtoNetwork()
 
-    gfile='data/9606.protein.links.v11.0.txt'
-    g = hyp.makeGraph(gfile)
 
-    patVals={'brca':pdc.getProtsByPatient(bcData,namemapper),'luad':pdc.getProtsByPatient(lungData,namemapper),'coad':pdc.getProtsByPatient(colData,namemapper),'gbm':pdc.getProtsByPatient(gbmData,namemapper)}
+    gfile='../OmicsIntegrator2/interactomes/inbiomap.9.12.2016.full.oi2'
+    g = hyp.make_graph(gfile)
+
+    ##here we get the top values for each patient
+    patVals={'brca':pdc.getProtsByPatient(bcData, namemapper),\
+             'luad':pdc.getProtsByPatient(lungData, namemapper),\
+             'coad':pdc.getProtsByPatient(colData, namemapper),\
+             'gbm':pdc.getProtsByPatient(gbmData, namemapper)}
 
     #now we want to build network communities for each
-    hyphae=dict()
+    hyphae = dict()
     parts = dict()
     for key in patVals:
-        h =  hyp(patVals[key],g)
-        hyphae[key]= h
-#        parts[key]= h.runCommunity()
+        h = hyp(patVals[key], g)
+        members = h.runCommunityWithMultiplex()
+        members.to_csv(key+'communities.csv')
+        h.saveCommunityToFile(prefix=key)
+        h.go_enrich_forests(ncbi)
+        h.go_enrich_communities(ncbi)
+        hyphae[key] = h
 
-    #now we have hyphae for each disease
-
+    #what GO/
+    ncbi = pdc.map_ncbi_to_gene(bcData)
 
 
 if __name__ == '__main__':
