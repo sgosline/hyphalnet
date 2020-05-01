@@ -4,6 +4,7 @@ import pandas as pd
 import OmicsIntegrator as oi
 import networkx as nx
 import goenrich
+import numpy as np
 
 class hypha:
     """hypha class defines multiple networks and communities """
@@ -12,15 +13,18 @@ class hypha:
         self.proteins = proteinWeights #dictionary of protein weights for each forest
         self.interactome = interactome #interactome
         self.forests = {} #forests
-        self.node_set = set() #nodeset across all forests
+        self.node_counts = dict() #nodes found in forests and their counts
         self.communities = {} #communities from hypha
         for pat in proteinWeights.keys():
             print('Running PCSF for patient'+pat)
             forest = self._getForest(list(proteinWeights[pat].items()))
+            for node in list(forest.nodes()):
+                if node in list(self.node_counts.keys()):
+                    self.node_counts[node] += 1
+                else:
+                    self.node_counts[node] = 1
             self.forests[pat] = forest
-        for net in self.forests.values():
-            self.node_set = self.node_set.union(set(net.nodes()))
-        print('Ready to create hypha across ', len(self.node_set), 'nodes and',\
+        print('Ready to create hypha across ', len(self.node_counts), 'nodes and',\
               len(proteinWeights), 'forests')
 
     def make_graph(gfile):
@@ -47,7 +51,7 @@ class hypha:
 
     def _nx2igraph(self, nx_graph):
         g = Graph(directed=False)
-        alln = self.node_set
+        alln = self.node_counts.keys()
         for n in alln:
             g.add_vertex(n)
         for e in nx_graph.edges():
@@ -75,16 +79,33 @@ class hypha:
         netlist = []
         for nx in self.forests.values():
             netlist.append(self._nx2igraph(nx))
-        [membership, improv] = la.find_partition_multiplex(netlist, la.ModularityVertexPartition)
-        df =pd.DataFrame(list(zip(self.node_set, membership)), columns=['Node','Partition'])
-        self.communities = dict(df.groupby('Partition')['Node'].apply(list))
-        return df
+        [membership, improv] = la.find_partition_multiplex(netlist,\
+                                                           la.ModularityVertexPartition)
+        comm_df = pd.DataFrame({'Node': list(self.node_counts.keys()),\
+                           'NumForests': list(self.node_counts.values()),\
+                           'Community': membership})
+        self.communities = dict(comm_df.groupby('Community')['Node'].apply(list))
+        return comm_df
 
-    def forestStats():
-        print("We have "+len(self.forests)+"forests")
+    def forest_stats(self):
+        """Compute statistics for node membership and forests"""
+        print("We have "+str(len(self.forests))+" forests")
         #plot number of nodes in each network with number of edges
+        dflist = []
+        for pat, forest in self.forests.items():
+            protweights = pd.DataFrame(self.proteins[pat].items(), \
+                                       columns=['Gene', 'DisWeight'])
+           # print(nx.get_node_attributes(forest,'prize'))
+            nodevals = pd.DataFrame(nx.get_node_attributes(forest, 'prize').items(),\
+                                    columns=['Gene', 'ForestPrize'])
+            print(nodevals)
+            pat_df = protweights.merge(nodevals, on='Gene', how='outer').fillna(0, downcast='infer')
+            pat_df['Patient'] = pat
+            dflist.append(pat_df)
+        full_df = pd.concat(dflist)
+        return full_df
 
-    def saveCommunityToFile(self, prefix=''):
+    def saveCommunityToFile(self, prefix='',doAllGraphs=False):
         """
         Currently writes everything to cytoscape files
 
@@ -96,8 +117,9 @@ class hypha:
         gred = nx.from_pandas_edgelist(self.interactome.interactome_dataframe,\
                                        'protein1', 'protein2', 'cost')
         #comS = set()
-        for com,nodes in self.communities.items():
+        for com, nodes in self.communities.items():
             cred = gred.subgraph(list(nodes))
+            nx.set_node_attributes(cred, self.node_counts)
             print('Adding membership to network option')
             #nx.set_node_attributes(gred,membership,'Community')
             print('saving to html')
@@ -106,13 +128,12 @@ class hypha:
                                                               filename=prefix+"_"+\
                                                               str(com)+\
                                                               "_pcsf_results.graphml.gz")
-
-            oi.output_networkx_graph_as_interactive_html(cred, \
+            oi.output_networkx_graph_as_ginteractive_html(cred, \
                                                          output_dir=".", \
                                                          filename=prefix+"_"+\
                                                          str(com)+\
                                                          "_pcsf_results.html")
-        return(None)
+        return None
 
     def map_hgnc_to_ensPep():
         tab = pd.read_csv('data/human.name_2_string.tsv', '\t', skiprows=[0], header=None)
@@ -124,41 +145,65 @@ class hypha:
         res = dict(zip(tab[2], tab[1]))
         return res
 
-    def get_go_enrichment(genelist, background):
+    def get_go_enrichment(self,genelist, background):
         O = goenrich.obo.ontology('db/go-basic.obo')
         gene2go = goenrich.read.gene2go('db/gene2go.gz')
-        gene2go = gene2go.loc[gene2go['GeneID'].isin(background)]
-        values = {k: set(v) for k,v in gene2go.groupby('GO_ID')['GeneID']}
+      #  gene2go = gene2go.loc[gene2go['GeneID'].isin(background)]
+        values = {k: set(v) for k, v in gene2go.groupby('GO_ID')['GeneID']}
         background_attribute = 'gene2go'
         goenrich.enrich.propagate(O, values, background_attribute)
-        df = goenrich.enrich.analyze(O, genelist, background_attribute)
-        return(df)
+        df = goenrich.enrich.analyze(O, np.array(genelist), background_attribute)
+        df = df.dropna().loc[df['q']<0.05]
+        return df
 
 
     def go_enrich_forests(self, ncbi_mapping):
         """        Iterates through forests and gets enrichment """
-        enrich={}
+        enrich = []
+        background = []
+        for ns in self.node_counts.keys():
+            try:
+                background.append(ncbi_mapping[ns])
+            except KeyError:
+                print("No key for background gene", ns)
         for pat, forest in self.forests.items():
             print(pat)
             nodenames = []
-            background = []
             for fn in forest.nodes():
                 try:
-                    nodenames.append(ncbi_mapping[fn])
+                    nodenames.append(int(ncbi_mapping[fn]))
                 except KeyError:
-                    print("No key", fn)
-            for ns in self.node_set:
-                try:
-                    background.append(ncbi_mapping[ns])
-                except KeyError:
-                    print("No key", ns)
-
+                    print("No key for gene", fn)
             try:
-                enrich[pat] = get_go_enrichment(nodenames, background)
-            except:
-                print('error?')
-        return(enrich)
+                evals = self.get_go_enrichment(nodenames, background)
+                evals['Patient'] = pat
+                enrich = enrich.append(evals)
+            except Exception as e:
+                print(e)
+        return pd.concat(enrich)
 
     def go_enrich_communities(self, ncbi_mapping):
-        """ GEts enrichment for individual communities"""
-        print ('Doing community thing')
+        """ Gets enrichment for individual communities"""
+        print('Doing community thing')
+        enrich = []
+        background = []
+        for ns in self.node_counts.keys():
+            try:
+                background.append(ncbi_mapping[ns])
+            except KeyError:
+                print("No key for background gene", ns)
+        for comm, nodes in self.communities.items():
+            print(comm)
+            nodenames = []
+            for fn in nodes:
+                try:
+                    nodenames.append(int(ncbi_mapping[fn]))
+                except KeyError:
+                    print("No key for gene", fn)
+            try:
+                evals = self.get_go_enrichment(nodenames, background)
+                evals['Community'] = comm
+                enrich = enrich.append(evals)
+            except Exception as e:
+                print(e)
+        return pd.concat(enrich)

@@ -37,18 +37,16 @@ def main():
     #now we want to build network communities for each
     hyphae = dict()
     parts = dict()
+    ncbi = pdc.map_ncbi_to_gene(bcData)
     for key in patVals:
         h = hyp(patVals[key], g)
+        h.forest_stats().to_csv(key+'_forestStats.csv')
         members = h.runCommunityWithMultiplex()
         members.to_csv(key+'communities.csv')
-        h.saveCommunityToFile(prefix=key)
-        h.go_enrich_forests(ncbi)
-        h.go_enrich_communities(ncbi)
+#        h.saveCommunityToFile(prefix=key)
+        h.go_enrich_forests(ncbi).to_csv(key+'enrichedForestGoTerms.csv')
+        h.go_enrich_communities(ncbi).to_csv(key+'enrichedCommunityGOterms.csv')
         hyphae[key] = h
-
-    #what GO/
-    ncbi = pdc.map_ncbi_to_gene(bcData)
-
 
 if __name__ == '__main__':
     main()
