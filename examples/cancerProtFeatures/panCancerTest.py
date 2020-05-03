@@ -6,9 +6,12 @@ Created on Mon Apr 13 20:05:29 2020
 """
 
 import argparse
-import hyphalnet as hypnet
+import sys
+sys.path.insert(0, "../../")
+
 from hyphalnet.hypha import hypha as hyp
 from hyphalnet.pdcworkflow import pdcworkflow as pdc
+import hyphalnet.hyphEnrich as hype
 
 parser = argparse.ArgumentParser(description="""Get data from the proteomic /
                                  data commons and build community networks""")
@@ -25,7 +28,7 @@ def main():
     namemapper = None #hyp.mapHGNCtoNetwork()
 
 
-    gfile='../OmicsIntegrator2/interactomes/inbiomap.9.12.2016.full.oi2'
+    gfile='../../../OmicsIntegrator2/interactomes/inbiomap.9.12.2016.full.oi2'
     g = hyp.make_graph(gfile)
 
     ##here we get the top values for each patient
@@ -36,7 +39,7 @@ def main():
 
     #now we want to build network communities for each
     hyphae = dict()
-    parts = dict()
+
     ncbi = pdc.map_ncbi_to_gene(bcData)
     for key in patVals:
         h = hyp(patVals[key], g)
@@ -44,9 +47,14 @@ def main():
         members = h.runCommunityWithMultiplex()
         members.to_csv(key+'communities.csv')
 #        h.saveCommunityToFile(prefix=key)
-        h.go_enrich_forests(ncbi).to_csv(key+'enrichedForestGoTerms.csv')
-        h.go_enrich_communities(ncbi).to_csv(key+'enrichedCommunityGOterms.csv')
+        hype.go_enrich_forests(h, ncbi).to_csv(key+'enrichedForestGoTerms.csv')
+        hype.go_enrich_communities(h, ncbi).to_csv(key+'enrichedCommunityGOterms.csv')
         hyphae[key] = h
+
+    #now compute graph distances to ascertain fidelity
+
+def compute_pairwise_distance(hyphae_dict):
+    """Computes all vs all distances of forests and communities"""
 
 if __name__ == '__main__':
     main()

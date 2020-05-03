@@ -28,7 +28,7 @@ class hypha:
               len(proteinWeights), 'forests')
 
     def make_graph(gfile):
-        print('making graph for OmicsIntegrator')
+        print('making networkx graph for OmicsIntegrator')
         graph = oi.Graph(gfile)
         return graph
 
@@ -37,19 +37,18 @@ class hypha:
         Searches for nodes in the interactome that have nodes of a specific name,
         then returns inferred subgraph, nothing fancy
         """
-
         nodelist = []
         for n in nodenames:
             try:
                 nodelist.append(self.interactome.vs.find(name = n))
             except ValueError:
                 print('Node '+n+' not found')
-       # print("Reducing",len(nodenames),"proteins to",len(nodelist)," nodes")
         sg = self.interactome.subgraph(nodelist)
         print("Subgraph has", len(sg.vs), "nodes")
         return sg
 
     def _nx2igraph(self, nx_graph):
+        """Helper function that maps networkx object to igraph"""
         g = Graph(directed=False)
         alln = self.node_counts.keys()
         for n in alln:
@@ -73,7 +72,7 @@ class hypha:
         return forest #TODO: add in parameter shift for 0 size networks
 
     def runCommunityWithMultiplex(self):
-        #first we have to create a union/interaction
+        """After forests are computed can run community detection"""
         print('running community detection')
         optimizer = la.Optimiser()
         netlist = []
@@ -98,7 +97,7 @@ class hypha:
            # print(nx.get_node_attributes(forest,'prize'))
             nodevals = pd.DataFrame(nx.get_node_attributes(forest, 'prize').items(),\
                                     columns=['Gene', 'ForestPrize'])
-            print(nodevals)
+            #print(nodevals)
             pat_df = protweights.merge(nodevals, on='Gene', how='outer').fillna(0, downcast='infer')
             pat_df['Patient'] = pat
             dflist.append(pat_df)
@@ -145,65 +144,10 @@ class hypha:
         res = dict(zip(tab[2], tab[1]))
         return res
 
-    def get_go_enrichment(self,genelist, background):
-        O = goenrich.obo.ontology('db/go-basic.obo')
-        gene2go = goenrich.read.gene2go('db/gene2go.gz')
-      #  gene2go = gene2go.loc[gene2go['GeneID'].isin(background)]
-        values = {k: set(v) for k, v in gene2go.groupby('GO_ID')['GeneID']}
-        background_attribute = 'gene2go'
-        goenrich.enrich.propagate(O, values, background_attribute)
-        df = goenrich.enrich.analyze(O, np.array(genelist), background_attribute)
-        df = df.dropna().loc[df['q']<0.05]
-        return df
+    def graph2graph_distance(g1, g2):
+        """Computes edit distance between two networkx objects"""
+        print('Computing distance between graphs by xxx')
 
-
-    def go_enrich_forests(self, ncbi_mapping):
-        """        Iterates through forests and gets enrichment """
-        enrich = []
-        background = []
-        for ns in self.node_counts.keys():
-            try:
-                background.append(ncbi_mapping[ns])
-            except KeyError:
-                print("No key for background gene", ns)
-        for pat, forest in self.forests.items():
-            print(pat)
-            nodenames = []
-            for fn in forest.nodes():
-                try:
-                    nodenames.append(int(ncbi_mapping[fn]))
-                except KeyError:
-                    print("No key for gene", fn)
-            try:
-                evals = self.get_go_enrichment(nodenames, background)
-                evals['Patient'] = pat
-                enrich = enrich.append(evals)
-            except Exception as e:
-                print(e)
-        return pd.concat(enrich)
-
-    def go_enrich_communities(self, ncbi_mapping):
-        """ Gets enrichment for individual communities"""
-        print('Doing community thing')
-        enrich = []
-        background = []
-        for ns in self.node_counts.keys():
-            try:
-                background.append(ncbi_mapping[ns])
-            except KeyError:
-                print("No key for background gene", ns)
-        for comm, nodes in self.communities.items():
-            print(comm)
-            nodenames = []
-            for fn in nodes:
-                try:
-                    nodenames.append(int(ncbi_mapping[fn]))
-                except KeyError:
-                    print("No key for gene", fn)
-            try:
-                evals = self.get_go_enrichment(nodenames, background)
-                evals['Community'] = comm
-                enrich = enrich.append(evals)
-            except Exception as e:
-                print(e)
-        return pd.concat(enrich)
+    def distance_to_communities(self, g_query):
+        """computes distance between networkx graph and all communities in hypha"""
+        print('Computing difference from graph to all communities')
