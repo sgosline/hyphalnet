@@ -1,5 +1,6 @@
 import goenrich
 import numpy as np
+import pandas as pd
 
 def get_go_enrichment(genelist, background):
     O = goenrich.obo.ontology('db/go-basic.obo')
