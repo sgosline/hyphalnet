@@ -12,6 +12,7 @@ sys.path.insert(0, "../../")
 from hyphalnet.hypha import hypha as hyp
 import hyphalnet.proteomics as prot
 import hyphalnet.hyphEnrich as hype
+import pandas as pd
 
 #Parser information for command line
 parser = argparse.ArgumentParser(description="""Get data from the proteomic \
@@ -22,6 +23,39 @@ parser.add_argument('--saveGraphs', dest='toFile', action='store_true',\
                     default=False, help='Flag to save networks to file')
 parser.add_argument('--getDistances', dest='getDist', action='store_true',\
                     default=False, help='Get and save distances')
+
+def compute_all_distances(hyp_dict):
+    """
+    Returns data frame with distances distances with columns
+    col 1: dis 1
+    col 2: dis 2
+    col 3: net 1 name
+    col 4: net 1 type
+    col 5: net 2 name
+    col 6: net 3 type
+    col 7: distance
+    """
+    df_list = []
+    for key1, hyp1 in hyp_dict.items():
+        #compute forest distances
+        within_dist = hyp1.within_distances()
+        within_dist['hyp1'] = key1
+        within_dist['hyp2'] = key1
+        df_list.append(within_dist)
+        for key2, hyp2 in hyp_dict.items():
+            if key1 != key2:
+                comm_net = hyp1.inter_distance(hyp2)
+                comm_net['hyp1'] = key1
+                comm_net['hyp2'] = key2
+                df_list.append(pd.DataFrame(comm_net))
+                #inter_distance is NOT symmetric
+                comm_net = hyp2.inter_distance(hyp1)
+                comm_net['hyp1'] = key2
+                comm_net['hyp2'] = key1
+                df_list.append(pd.DataFrame(comm_net))
+    dist_df = pd.concat(df_list)
+    return dist_df
+
 
 def main():
     args = parser.parse_args()
@@ -39,7 +73,7 @@ def main():
 
     ##here we get the top values for each patient
     patVals = {'brca':prot.getProtsByPatient(bcData, namemapper),\
-             'luad':prot.getProtsByPatient(lungData, namemapper),\
+               'luad':prot.getProtsByPatient(lungData, namemapper),\
              'coad':prot.getProtsByPatient(colData, namemapper),\
              'gbm':prot.getProtsByPatient(gbmData, namemapper)}
 
@@ -52,7 +86,7 @@ def main():
         members = h.runCommunityWithMultiplex()
         members.to_csv(key+'communities.csv')
         hyphae[key] = h
-        if args.saveGraphs:
+        if args.toFile:
             h.saveCommunityToFile(prefix=key)
         if args.doEnrich:
             hype.go_enrich_forests(h, ncbi).to_csv(key+'enrichedForestGoTerms.csv')
@@ -60,10 +94,9 @@ def main():
 
     #now compute graph distances to ascertain fidelity
     if args.getDist:
-        res = compute_pairwise_distance(hyphae)
+        res = compute_all_distances(hyphae)
+        res.to_csv('panCancerDistances.csv')
 
-def compute_pairwise_distance(hyphae_dict):
-    """Computes all vs all distances of forests and communities"""
 
 if __name__ == '__main__':
     main()

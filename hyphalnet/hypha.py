@@ -144,10 +144,65 @@ class hypha:
         res = dict(zip(tab[2], tab[1]))
         return res
 
-    def graph2graph_distance(g1, g2):
-        """Computes edit distance between two networkx objects"""
-        print('Computing distance between graphs by xxx')
+    def jaccard_distance(self, ns_1, ns_2):
+        """Computes jaccard distance between two networkx objects"""
+        #print('Computing distance between graphs by jaccard')
+        u_size = len(ns_1.union(ns_2))
+        if u_size == 0:
+            return 1.0
+        return 1-len(ns_1.intersection(ns_2))/u_size
+
+    def distance_to_networks(self, g_query):
+        """ Compute distance to all networks assuming this networks is net2"""
+        g_nodes = set(g_query.nodes())
+        net_dist = {}
+        for pat, forest in self.forests.items():
+            net_dist[pat] = self.jaccard_distance(set(forest.nodes()), g_nodes)
+        net_df = pd.DataFrame(net_dist.items(), columns=['net2', 'distance'])
+        net_df['net1_type'] = 'forest'
+        net_df['net2_type'] = 'forest'
+        print(net_df)
+        return net_df
 
     def distance_to_communities(self, g_query):
-        """computes distance between networkx graph and all communities in hypha"""
+        """computes distance between entry graph and communities in hypha"""
         print('Computing difference from graph to all communities')
+        g_nodes = set(g_query.nodes())
+        comm_dist = {}
+        for comm, nodes in self.communities.items():
+            comm_dist[comm] = self.jaccard_distance(set(nodes), g_nodes)
+        comm_df = pd.DataFrame(comm_dist.items(), columns=['net2', 'distance'])
+        comm_df['net2_type'] = 'community'
+        comm_df['net1_type'] = 'forest'
+        print(comm_df)
+        return comm_df
+
+    def within_distances(self):
+        distvals = []
+        for pat, forest in self.forests.items():
+            net_net_dist = self.distance_to_networks(forest)
+            net_net_dist['net1'] = pat
+            #now do distance to hypha
+            net_hyph_dist = self.distance_to_communities(forest)
+            net_hyph_dist['net1'] = pat
+            distvals.append(net_net_dist)
+            distvals.append(net_hyph_dist)
+        return pd.concat(distvals)
+
+    def inter_distance(self, hyp2):
+        """ Computes distance to other hypha"""
+        #first compute networks to other networks
+        df_list = []
+        for pat, forest in hyp2.forests.items():
+            net_dist = self.distance_to_networks(forest)
+            comm_dist = self.distance_to_communities(forest)
+            comm_dist['net1'] = pat
+            net_dist['net1'] = pat
+            df_list.append(comm_dist)
+            df_list.append(net_dist)
+        return pd.concat(df_list)
+
+
+        #the compute networks to communities
+
+        #the compute communities to communities
