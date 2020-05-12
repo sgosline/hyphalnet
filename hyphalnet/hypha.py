@@ -3,7 +3,6 @@ import leidenalg as la
 import pandas as pd
 import OmicsIntegrator as oi
 import networkx as nx
-import goenrich
 import numpy as np
 
 class hypha:
@@ -104,7 +103,7 @@ class hypha:
         full_df = pd.concat(dflist)
         return full_df
 
-    def saveCommunityToFile(self, prefix='',doAllGraphs=False):
+    def saveCommunityToFile(self, prefix='', doAllGraphs=False):
         """
         Currently writes everything to cytoscape files
 
@@ -126,12 +125,12 @@ class hypha:
                                                               output_dir=".", \
                                                               filename=prefix+"_"+\
                                                               str(com)+\
-                                                              "_pcsf_results.graphml.gz")
+                                                              "_hypha_results.graphml.gz")
             oi.output_networkx_graph_as_ginteractive_html(cred, \
                                                          output_dir=".", \
                                                          filename=prefix+"_"+\
                                                          str(com)+\
-                                                         "_pcsf_results.html")
+                                                         "_hypha_results.html")
         return None
 
     def map_hgnc_to_ensPep():

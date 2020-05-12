@@ -1,9 +1,16 @@
 import pandas as pd
 import re
+import numpy as np
 
 
 def downloadPDCfile():
     print("Not sure how this will work just yet")
+
+
+def normals_from_manifest(fname):
+    """ Parses PDC sample manifest"""
+    dat = pd.read_csv(fname, sep=',')
+    return dat.groupby("Disease Type")['Aliquot Submitter ID'].apply(list).to_dict()
 
 def map_ncbi_to_gene(tdat):
     """ takes a  parsed file and returns dictionary of gene maps"""
@@ -25,7 +32,7 @@ def parsePDCfile(fpath='data/CPTAC2_Breast_Prospective_Collection_BI_Proteome.tm
         None.
         """
 
-    dat = pd.read_csv(fpath,sep='\t')
+    dat = pd.read_csv(fpath, sep='\t')
     newdat = dat[['Gene', 'NCBIGeneID']]
 
     #retrieve log ratios
@@ -76,4 +83,37 @@ def getProtsByPatient(tdf, namemapper=None, column='logratio', quantThresh=0.01)
     for k in dprots.keys():
         res[k] = dict(zip(dprots[k], dvals[k]))
 
+    return res
+
+
+def getTumorNorm(tdf, normSamps, namemapper=None, column='logratio', quantThresh=0.01):
+    """
+    Gets per-patient tumor values compared to pooled normal
+    TODO: update to do matched normal instead
+
+    """
+
+    tumSamps = set([a for a in tdf['Patient'] if a not in normSamps])
+    normVals = tdf[tdf.Patient.isin(normSamps)]
+    tumVals = tdf[tdf.Patient.isin(tumSamps)]
+
+    meanVals = normVals.groupby('Gene')[column].apply(np.mean)
+
+    tumMat = tumVals.pivot(index='Gene', columns='Patient', values=column)
+
+    diffs = tumMat.subtract(meanVals, axis=0)
+    diffs['Gene'] = diffs.index
+    fd = diffs.melt(id_vars='Gene',value_vars=tumMat.columns, value_name='diffsToNormal',var_name='Patient')
+    fd['absVal'] = np.abs(fd['diffsToNormal'])
+    dquants = pd.DataFrame({'thresh':fd.groupby("Patient")['absVal'].quantile(1.0-quantThresh)})
+    #which genes/patientss are abve that threshold
+    fd = fd.merge(dquants, on='Patient')
+    fd = fd.assign(topProt=fd['absVal'] > fd['thresh'])
+    selvals = fd[fd['topProt']]
+    dprots = selvals.groupby('Patient')['Gene'].apply(list).to_dict()
+    dvals = selvals.groupby("Patient")['absVal'].apply(list).to_dict() #can't do neg prizes
+    #return those values
+    res = {}
+    for k in dprots.keys():
+        res[k] = dict(zip(dprots[k],dvals[k]))
     return res

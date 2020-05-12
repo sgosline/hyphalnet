@@ -16,15 +16,34 @@ forestGOStats<-function(topQuant='GOenrichmentPerPatient.tsv',
                                         gbm='gbmenrichedForestGoTerms.csv',
                                         coad='coadenrichedForestGoTerms.csv')){
   forestGo=do.call(rbind,lapply(names(forestVals),function(x){
-    read.csv2(forestFiles[[x]],sep=',',header=T,stringsAsFactors=F)%>%
-      mutate(disease=x)
-  }))
-  quantGo=read.csv2(topQuant,sep=',',header=T,stringsAsFactors = F)
+    print(x)
+    res<-read.csv2(forestVals[[x]],sep=',',header=T,stringsAsFactors=F)
+    res$disease=rep(x,nrow(res))
+    return(res)
+  }))%>%
+    subset(namespace='biological_process')
   
+  quantGo=read.csv2(topQuant,sep='\t',header=T,stringsAsFactors = F)
+  
+  patStats<-quantGo%>%select(disease,Patient,quantTerm='ID')%>%
+    rowwise()%>%
+    mutate(Patient=stringr::str_replace(Patient," Log Ratio",""))
+
+  
+  netStats<-forestGo%>%select(disease,Patient,netTerm='term')%>%
+    mutate(disease=toupper(disease))
   ##now compare how many go terms are unique,distinct and shared for each patient in each disease
   
+  fullStats<-patStats%>%full_join(netStats,by=c('Patient','disease'))
   
+  go.ver<-fullStats%>%
+    group_by(disease,Patient)%>%
+    summarize(quantOnly=length(setdiff(quantTerm,netTerm)),netOnly=length(setdiff(netTerm,quantTerm)),agreement=length(intersect(quantTerm,netTerm)))%>%select(disease,Patient,quantOnly,netOnly,agreement)%>%
+    distinct()
   
+  ggplot(go.ver)+
+    geom_point(aes(x=quantOnly,y=netOnly,size=agreement,col=disease))
+  ggsave('goEnrichmentOverlap.pdf',useDingbats=FALSE)
 }
 
 
@@ -47,7 +66,8 @@ forStats<-function(forestFiles=list(luad='luad_forestStats.csv',
       ungroup()%>%
       select(disease,Patient,correlation)%>%distinct()
     
-    ggplot(corStats,aes(fill=disease))+geom_histogram(aes(x=correlation),position='dodge')+
+    ggplot(corStats,aes(fill=disease))+
+      geom_histogram(aes(x=correlation),position='dodge')+
         ggtitle('Correlation of disease weights to forest weights') 
     ggsave('proteinNetworkCorrelation.pdf')
     
@@ -68,7 +88,7 @@ forStats<-function(forestFiles=list(luad='luad_forestStats.csv',
     nodeTypeVals<-steins%>%inner_join(terms,by=c('disease','Patient'))
     
     ggplot(nodeTypeVals,aes(col=disease))+geom_point(aes(x=numTerms,y=numSteiner))+ggtitle("Number of steiner vs terminals")
-    ggsave('steinerVsTerminal.pdf')
+    ggsave('steinerVsTerminal.pdf',useDingbats=FALSE)
     
       
     full.stats<-corStats%>%
@@ -77,8 +97,7 @@ forStats<-function(forestFiles=list(luad='luad_forestStats.csv',
     return(full.stats)
 }
 
-plotNetworkSummaries<-function(f,
-                               communityFiles=list(luad='luadcommunities.csv',
+compareCommunitiesToForests<-function(communityFiles=list(luad='luadcommunities.csv',
                                                    gbm='gbmcommunities.csv',brca='brcacommunities.csv',
                                                    coad='coadcommunities.csv')){
     
@@ -86,9 +105,6 @@ plotNetworkSummaries<-function(f,
   
 }
 
-evalGoEnrichment<-function(patEnrichFile,netEnrichFile){
-  #how do patient enrichments compare to network enrichments?
-}
 
 plotNetworkDistances<-function(communityDistanceFile){
   library(cowplot)
@@ -150,13 +166,14 @@ plotNetworkDistances<-function(communityDistanceFile){
       left_join(red.annote)%>%
       left_join(neighborhood)
     
-    p <-ggplot(full.tab,aes(x=Dim1,y=Dim2,col=graph,shape=graph,size=neighborhood))+geom_point()+ggtitle(paste(disease,'Hyphae'))+theme_minimal()
+    p <-ggplot(full.tab,aes(x=Dim1,y=Dim2,col=graph,shape=graph,size=neighborhood))+
+      geom_point()+ggtitle(paste(disease,'Hyphae'))+theme_minimal()
     return(p)
   })
    
   ##now do all diseases combined
   cowplot::plot_grid(plotlist=res)
-  ggsave('individualPlots.png')
+  ggsave('individualPlots.pdf',useDingbats=FALSE)
     
  
   
@@ -192,8 +209,10 @@ plotNetworkDistances<-function(communityDistanceFile){
   
   library(ggplot2)
   ggplot(full.tab,aes(x=Dim1,y=Dim2,col=disease,shape=graph,size=neighborhood))+geom_point()
-  ggsave('allPlotsTogether.png')
+  ggsave('allPlotsTogether.pdf',useDingbats=FALSE)
 }
 
 
-plotNetDistances('panCancerDistances.csv')
+forStats() ##how well do the forests recapitulate biology?
+plotNetworkDistances('panCancerDistances.csv') #how well do the communities summarize the diversity of the forests?
+forestGOStats()##we get more function for patients, and it agrees with other stuff

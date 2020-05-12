@@ -61,15 +61,27 @@ def main():
     args = parser.parse_args()
 
     ##this is the framework for the PDC data parser.
+    norms = prot.normals_from_manifest('data/PDC_biospecimen_manifest_05112020_184928.csv')
+
+#    bcData = prot.parsePDCfile('data/TCGA_Breast_BI_Proteome.itraq.tsv')
     bcData = prot.parsePDCfile('data/CPTAC2_Breast_Prospective_Collection_BI_Proteome.tmt10.tsv')
     lungData = prot.parsePDCfile('data/CPTAC3_Lung_Adeno_Carcinoma_Proteome.tmt10.tsv')
     colData = prot.parsePDCfile('data/CPTAC2_Colon_Prospective_Collection_PNNL_Proteome.tmt10.tsv')
     gbmData = prot.parsePDCfile('data/CPTAC3_Glioblastoma_Multiforme_Proteome.tmt11.tsv')
 
+    ##HACK: manually hard-coded in normal patients
+    normPats = {'brca': set([a for a in bcData['Patient'] if a in norms['Breast Invasive Carcinoma']]),\
+                'coad': set([a for a in colData['Patient'] if a in norms['Colon Adenocarcinoma']]),\
+                'luad': set([a for a in lungData['Patient'] if a in norms['Lung Adenocarcinoma']]),\
+                'gbm': set([a for a in gbmData['Patient'] if a in norms['Other']])}
+
+
+
     gfile='../../../OmicsIntegrator2/interactomes/inbiomap.9.12.2016.full.oi2'
     g = hyp.make_graph(gfile)
 
     namemapper = None #hyp.mapHGNCtoNetwork()
+    ncbi = prot.map_ncbi_to_gene(bcData)
 
     ##here we get the top values for each patient
     patVals = {'brca':prot.getProtsByPatient(bcData, namemapper),\
@@ -77,11 +89,15 @@ def main():
              'coad':prot.getProtsByPatient(colData, namemapper),\
              'gbm':prot.getProtsByPatient(gbmData, namemapper)}
 
+    patDiffs = {'brca': prot.getTumorNorm(bcData,normPats['brca'],namemapper),
+                'luad': prot.getTumorNorm(lungData,normPats['luad'],namemapper),
+                'coad': prot.getTumorNorm(colData,normPats['coad'],namemapper),
+                'gbm': prot.getTumorNorm(gbmData,normPats['gbm'],namemapper)}
     #now we want to build network communities for each
     hyphae = dict()
 
-    for key in patVals:
-        h = hyp(patVals[key], g)
+    for key in patDiffs:
+        h = hyp(patDiffs[key], g)
         h.forest_stats().to_csv(key+'_forestStats.csv')
         members = h.runCommunityWithMultiplex()
         members.to_csv(key+'communities.csv')

@@ -7,11 +7,13 @@ Currently we have built a suite of tools to evaluate the feasibility of this app
 
 ``` python
 python3 panCancerTest.py --enrich --getDistances
+
 ```
 
 This will run the network analysis on 4 test datasets from the Proteomic data commons and compute the Gene Ontology enrichment and also output the data for the next analysis.
 
 ``` R
+Rscript panCancerEnrichment.R
 Rscript netStats.R
 Rscript communityStats.R
 ```
