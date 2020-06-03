@@ -2,7 +2,7 @@
 
 This project represents the implementation of community detection algorithms in biological networks. Our basic approach is shown below. It requires using an underlying protein-rotein interaciton network to derive sample-specific networks, that can then be compressed to a multigraph and reduced to functionally-specific communities.
 
-[[img/community_detection.jpg]]
+![Community Detection](/img/community_detection.jpg)
 
 We are currently evaluating this approach in three separate domains.
 
