@@ -10,39 +10,31 @@ visualizeCommunitySize<-function(fname){
 
 }
 
-forestGOStats<-function(topQuant='GOenrichmentPerPatient.tsv',
-                        forestVals=list(luad='luadenrichedForestGoTerms.csv',
-                                        brca='brcaenrichedForestGoTerms.csv',
-                                        gbm='gbmenrichedForestGoTerms.csv',
-                                        coad='coadenrichedForestGoTerms.csv')){
-  forestGo=do.call(rbind,lapply(names(forestVals),function(x){
-    print(x)
-    res<-read.csv2(forestVals[[x]],sep=',',header=T,stringsAsFactors=F)
-    res$disease=rep(x,nrow(res))
-    return(res)
-  }))%>%
-    subset(namespace='biological_process')
+#'forestGOStats
+#'Compares GO enrihcment of forests compared to patient data
+forestGOStats<-function(topQuant='GOenrichmentPerPatientVsNormal.tsv'){
   
-  quantGo=read.csv2(topQuant,sep='\t',header=T,stringsAsFactors = F)
-  
-  patStats<-quantGo%>%select(disease,Patient,quantTerm='ID')%>%
+    forestGo<-subset(goStats,networkType=='Patient')
+
+    quantGo=read.csv2(topQuant,sep='\t',header=T,stringsAsFactors = F)%>%dplyr::select(disease,Patient,quantTerm='ID')%>%
     rowwise()%>%
     mutate(Patient=stringr::str_replace(Patient," Log Ratio",""))
 
   
-  netStats<-forestGo%>%select(disease,Patient,netTerm='term')%>%
+  netStats<-forestGo%>%dplyr::select(disease,Patient,netTerm='term')%>%
     mutate(disease=toupper(disease))
   ##now compare how many go terms are unique,distinct and shared for each patient in each disease
   
-  fullStats<-patStats%>%full_join(netStats,by=c('Patient','disease'))
+  fullStats<-quantGo%>%full_join(netStats,by=c('Patient','disease'))
   
   go.ver<-fullStats%>%
     group_by(disease,Patient)%>%
-    summarize(quantOnly=length(setdiff(quantTerm,netTerm)),netOnly=length(setdiff(netTerm,quantTerm)),agreement=length(intersect(quantTerm,netTerm)))%>%select(disease,Patient,quantOnly,netOnly,agreement)%>%
+    summarize(quantOnly=length(setdiff(quantTerm,netTerm)),netOnly=length(setdiff(netTerm,quantTerm)),agreement=length(intersect(quantTerm,netTerm)))%>%
+    dplyr::select(disease,Patient,quantOnly,netOnly,agreement)%>%
     distinct()
   
   ggplot(go.ver)+
-    geom_point(aes(x=quantOnly,y=netOnly,size=agreement,col=disease))
+    geom_point(aes(x=quantOnly,y=netOnly,size=agreement,col=disease))+scale_color_viridis_d()
   ggsave('goEnrichmentOverlap.pdf',useDingbats=FALSE)
 }
 
@@ -64,7 +56,7 @@ forStats<-function(forestFiles=list(luad='luad_forestStats.csv',
       group_by(disease,Patient)%>%
       mutate(correlation=cor(as.numeric(DisWeight),as.numeric(ForestPrize)))%>%
       ungroup()%>%
-      select(disease,Patient,correlation)%>%distinct()
+      dplyr::select(disease,Patient,correlation)%>%distinct()
     
     ggplot(corStats,aes(fill=disease))+
       geom_histogram(aes(x=correlation),position='dodge')+
@@ -78,16 +70,16 @@ forStats<-function(forestFiles=list(luad='luad_forestStats.csv',
     steins<-subset(nodeType,isSteiner==TRUE)%>%
       group_by(disease,Patient)%>%
       summarize(numSteiner=n_distinct(Gene))%>%
-      select(disease,Patient,numSteiner)
+      dplyr::select(disease,Patient,numSteiner)
     terms=subset(nodeType,isSteiner==FALSE)%>%
       subset(ForestPrize!=0)%>%
       group_by(disease,Patient)%>%
       summarize(numTerms=n_distinct(Gene))%>%
-      select(disease,Patient,numTerms)
+      dplyr::select(disease,Patient,numTerms)
   
     nodeTypeVals<-steins%>%inner_join(terms,by=c('disease','Patient'))
     
-    ggplot(nodeTypeVals,aes(col=disease))+geom_point(aes(x=numTerms,y=numSteiner))+ggtitle("Number of steiner vs terminals")
+    ggplot(nodeTypeVals,aes(col=disease))+geom_point(aes(x=numTerms,y=numSteiner))+ggtitle("Number of steiner vs terminals")+scale_color_viridis_d()
     ggsave('steinerVsTerminal.pdf',useDingbats=FALSE)
     
       
@@ -97,11 +89,77 @@ forStats<-function(forestFiles=list(luad='luad_forestStats.csv',
     return(full.stats)
 }
 
-compareCommunitiesToForests<-function(communityFiles=list(luad='luadcommunities.csv',
-                                                   gbm='gbmcommunities.csv',brca='brcacommunities.csv',
-                                                   coad='coadcommunities.csv')){
+
+assignClosestNodes<-function(communityDistanceFile){
+  #process the distances
+  tab<-read.csv(communityDistanceFile,header=T,stringsAsFactors=F)
+  minDists=tab%>%subset(net2_type=='community')%>%
+      group_by(net1)%>%
+      filter(distance==min(distance))%>%
+    dplyr::select(graph='net1',disease='hyp1',community='net2',commDis='hyp2',distance)
     
+  minDists%>%
+      group_by(disease,community,commDis)%>%
+      summarize(numNets=n_distinct(graph))%>%
+      ggplot(aes(x=community,y=numNets,fill=disease))+geom_bar(stat='identity',position='dodge')+facet_grid(~commDis)+scale_fill_viridis_d()
+  write.csv(minDists,file='networksAndClosestCommunity.csv')
+  ggsave('networksAssignedToClosestCommunity.pdf')  
+  return(minDists)
+}
+
+
+getGoValues<-function(communityVals=list(luad='luadenrichedCommunityGOterms.csv',
+                                        brca='brcaenrichedCommunityGOterms.csv',
+                                        gbm='gbmenrichedCommunityGOterms.csv',
+                                        coad='coadenrichedCommunityGOterms.csv'),
+                     forestVals=list(luad='luadenrichedForestGoTerms.csv',
+                                     brca='brcaenrichedForestGoTerms.csv',
+                                     gbm='gbmenrichedForestGoTerms.csv',
+                                     coad='coadenrichedForestGoTerms.csv')){
   
+  commGo=do.call(rbind,lapply(names(communityVals),function(x){
+    print(x)
+    res<-read.csv2(communityVals[[x]],sep=',',header=T,stringsAsFactors=F)
+    res$disease=rep(x,nrow(res))
+    return(res)
+  }))%>%
+    subset(namespace='biological_process')%>%
+    select(term,q,name,Community,disease)%>%
+    tidyr::pivot_longer(Community,names_to='networkType',values_to='sample')
+  
+  ##read in all enrichment files - those from individual forests, communities and actual diffex
+  forestGo=do.call(rbind,lapply(names(forestVals),function(x){
+    print(x)
+    res<-read.csv2(forestVals[[x]],sep=',',header=T,stringsAsFactors=F)
+    res$disease=rep(x,nrow(res))
+    return(res)
+  }))%>%
+    subset(namespace='biological_process')%>%
+    select(term,q,name,Patient,disease)%>%
+    tidyr::pivot_longer(Patient,names_to='networkType',values_to='sample')
+  
+  return(rbind(commGo,forestGo))
+}
+
+compareGOtoDistance<-function(communityDistanceFile){
+  
+   #process the distances
+  tab<-read.csv(communityDistanceFile,header=T,stringsAsFactors=F)
+  
+  mod.tab<-tab%>%rowwise()%>%
+    mutate(net1_name=stringr::str_c(hyp1,net1,sep='_'))%>%
+    mutate(net2_name=stringr::str_c(hyp2,net2,sep='_'))
+  
+  annotes<-mod.tab%>%
+    dplyr::select(net1_name,net2_name,net1_type,net2_type,hyp1,hyp2)%>%
+    distinct()
+  
+  ###we can probably remove this or alter it once we fix code
+  red.annote<-annotes%>%
+    dplyr::select(sample='net2_name',graph='net2_type',disease='hyp2')%>%
+    distinct()
+  
+  assigned.comm<-mod.tab%>%subset(net1_type=='forest')%>%subset(net2_type=='community')%>%group_by(net1,hyp1)%>%filter(distance==min(distance))
   
 }
 
@@ -128,8 +186,7 @@ plotNetworkDistances<-function(communityDistanceFile){
   ##remove this oncec we fix code
   missed<-subset(mod.tab,net2_name%in%setdiff(annotes$net2_name,annotes$net1_name))%>%
     dplyr::select(net1_name,net2_name,distance)%>%
-    rename(net2_name='net1_name',net1_name='net2_name')
-
+    dplyr::rename(net2_name='net1_name',net1_name='net2_name')
 
   ##first do each disease
   res=lapply(unique(mod.tab$hyp1),function(disease){
@@ -138,7 +195,7 @@ plotNetworkDistances<-function(communityDistanceFile){
     
     red.missed<-subset(red.tab,net2_name%in%setdiff(annotes$net2_name,annotes$net1_name))%>%
       dplyr::select(net1_name,net2_name,distance)%>%
-      rename(net2_name='net1_name',net1_name='net2_name')
+      dplyr::rename(net2_name='net1_name',net1_name='net2_name')
     
     as.mat <-red.tab%>%
       dplyr::select(net1_name,net2_name,distance)%>%
@@ -147,14 +204,13 @@ plotNetworkDistances<-function(communityDistanceFile){
       tibble::column_to_rownames('net1_name')%>%
       as.matrix()
     
-    
     ##calculate how many nodes in neighborhood
     neighborhood=red.tab%>%
         group_by(net2_name)%>%
         mutate(noVals=(distance==1.0))%>%
         subset(noVals==FALSE)%>%
         summarize(neighborhood=n_distinct(net1_name))%>%
-    rename(sample='net2_name')
+    dplyr::rename(sample='net2_name')
     
     res<-cmdscale(as.dist(as.mat))
     
@@ -167,21 +223,20 @@ plotNetworkDistances<-function(communityDistanceFile){
       left_join(neighborhood)
     
     p <-ggplot(full.tab,aes(x=Dim1,y=Dim2,col=graph,shape=graph,size=neighborhood))+
-      geom_point()+ggtitle(paste(disease,'Hyphae'))+theme_minimal()
+      geom_point()+ggtitle(paste(disease,'Hyphae'))+theme_minimal()+scale_color_viridis_d()
     return(p)
   })
    
   ##now do all diseases combined
   cowplot::plot_grid(plotlist=res)
-  ggsave('individualPlots.pdf',useDingbats=FALSE)
-    
- 
+  ggsave('individualPlots.pdf', useDingbats=FALSE)
   
   ##then do combined
   as.mat<-mod.tab%>%
     dplyr::select(net1_name,net2_name,distance)%>%
     rbind(missed)%>%
-    tidyr::pivot_wider(values_from=distance,names_from=net2_name,values_fn=list(distance=mean),values_fill=list(distance=1.0))%>%
+    tidyr::pivot_wider(values_from=distance,names_from=net2_name,
+                       values_fn=list(distance=mean),values_fill=list(distance=1.0))%>%
     tibble::column_to_rownames('net1_name')%>%
     as.matrix()
   
@@ -190,14 +245,11 @@ plotNetworkDistances<-function(communityDistanceFile){
     mutate(noVals=(distance==1.0))%>%
     subset(noVals==FALSE)%>%
     summarize(neighborhood=n_distinct(net1_name))%>%
-    rename(sample='net2_name')
-  
-  
- 
+    dplyr::rename(sample='net2_name')
+
   res<-cmdscale(as.dist(as.mat))
   colnames(res)<-c('Dim1','Dim2')
-  
-  
+
   red.annote<-annotes%>%
     dplyr::select(sample='net2_name',graph='net2_type',disease='hyp2')%>%
     distinct()
@@ -208,11 +260,27 @@ plotNetworkDistances<-function(communityDistanceFile){
     left_join(neighborhood)
   
   library(ggplot2)
-  ggplot(full.tab,aes(x=Dim1,y=Dim2,col=disease,shape=graph,size=neighborhood))+geom_point()
+  ggplot(full.tab,aes(x=Dim1,y=Dim2,col=disease,shape=graph,size=neighborhood))+geom_point()+scale_color_viridis_d()
   ggsave('allPlotsTogether.pdf',useDingbats=FALSE)
 }
 
+#'for a given community, get the go enrichment terms, and how many of the
+#'closest forests have those terms
+#'@param tumorType
+#'@param community
+getCommunityAndClosestsForests<-function(tumorType='brca',comm='0'){
+  fors<-subset(minDists,disease==tumorType)%>%
+    subset(community==comm)
+  
+  comGo<-subset(goStats,disease==tumorType)%>%
+    subset(sample==comm||sampl%in%fors$graph)
 
-forStats() ##how well do the forests recapitulate biology?
-plotNetworkDistances('panCancerDistances.csv') #how well do the communities summarize the diversity of the forests?
-forestGOStats()##we get more function for patients, and it agrees with other stuff
+}
+
+goStats<<-getGoValues()
+minDists<<-assignClosestNodes('panCancerDistances.csv')
+
+#forStats() ##how well do the forests recapitulate biology?
+#plotNetworkDistances('panCancerDistances.csv') #how well do the communities summarize the diversity of the forests?
+#forestGOStats()##we get more function for patients, and it agrees with other stuff
+

@@ -2,6 +2,21 @@ import goenrich
 import numpy as np
 import pandas as pd
 
+
+def get_kegg_enrichment(genelist, background):
+    """Get KEGG based pathway enrichment"""
+    O = goenrich.obo.ontology('db/go-basic.obo')
+    gene2go = goenrich.read.gene2go('db/gene2go.gz')
+    #  gene2go = gene2go.loc[gene2go['GeneID'].isin(background)]
+    values = {k: set(v) for k, v in gene2go.groupby('GO_ID')['GeneID']}
+    background_attribute = 'gene2go'
+    goenrich.enrich.propagate(O, values, background_attribute)
+    df = goenrich.enrich.analyze(O, np.array(genelist), background_attribute)
+    df = df.dropna().loc[df['q'] < 0.05]
+    return df
+
+
+
 def get_go_enrichment(genelist, background):
     O = goenrich.obo.ontology('db/go-basic.obo')
     gene2go = goenrich.read.gene2go('db/gene2go.gz')
@@ -11,6 +26,7 @@ def get_go_enrichment(genelist, background):
     goenrich.enrich.propagate(O, values, background_attribute)
     df = goenrich.enrich.analyze(O, np.array(genelist), background_attribute)
     df = df.dropna().loc[df['q'] < 0.05]
+    df = df.dropna().loc[df['namespace']=='biological_process']
     return df
 
 
@@ -58,7 +74,7 @@ def go_enrich_communities(hyp, ncbi_mapping):
                 print("No key for gene", fn)
         try:
             evals = get_go_enrichment(nodenames, background)
-            evals['Community'] = comm
+            evals['Community'] = str(comm)
             enrich.append(evals)
         except Exception as e:
             print(e)

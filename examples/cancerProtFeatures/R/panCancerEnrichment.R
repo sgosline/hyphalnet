@@ -1,10 +1,11 @@
 
 library(dplyr)
+library(pheatmap)
 source("R/pdcFileProcessing.R")
 #' Old plot using clusterProfiler
 #' 
 plotOldGSEA<-function(genes.with.values,prefix='',doPlot=FALSE){
-  print(head(genes.with.values))
+ # print(head(genes.with.values))
   require(org.Hs.eg.db)
   mapping<-as.data.frame(org.Hs.egALIAS2EG)%>%
     dplyr::rename(Gene='alias_symbol')
@@ -40,20 +41,24 @@ checkGSEAtermEnrichment<-function(){
   disTab<-readInAllFiles()%>%dplyr::rename(value='logratio')
   
   ##let's get disease means
-  disMeanTerms = disTab%>%group_by(disease,Gene)%>%
-    summarize(geneMean=mean(value))%>%
-    dplyr::rename(value='geneMean')%>%
-    dplyr::select(Gene,value)%>%
-    group_modify(plotOldGSEA)%>%ungroup()
+  disNormTerms = disTab%>%subset(isNorm)%>%
+    group_by(disease,Gene)%>%
+    summarize(normMean=mean(value))
+  
+  disPats<-disTab%>%subset(!isNorm)%>%
+    left_join(disNormTerms,by=c('disease','Gene'))
   
   ##only enrichment for gbm!
-  disPatTerms = disTab%>%
+  disPatTerms = disPats%>%
+    mutate(logFC=value-normMean)%>%
     group_by(disease,Patient)%>%
-    dplyr::select(Gene,value)%>%
+    dplyr::select(Gene,logFC)%>%
+    dplyr::rename(value='logFC')%>%
     group_modify(plotOldGSEA)%>%
     ungroup()
-  write.table(disPatTerms,file = 'GOenrichmentPerPatient.tsv',sep='\t',row.names=F,col.names=T)
-  disCounts<-disTab%>%group_by(disease)%>%
+  
+  write.table(disPatTerms,file = 'GOenrichmentPerPatientVsNormal.tsv',sep='\t',row.names=F,col.names=T)
+  disCounts<-disPats%>%group_by(disease)%>%
     summarize(numPats=n_distinct(Patient))
   
   disPatCounts = disPatTerms%>%
@@ -70,7 +75,7 @@ checkGSEAtermEnrichment<-function(){
     pivot_wider(-c(numTerms,numPats),values_from = fracSamps,names_from=disease,values_fill=list(fracSamps=0.0))%>%
     tibble::column_to_rownames('Description')
   
-  pheatmap(dmat,cellheight=10,cellwidth=10,filename = 'top20GOtermsFoundInpatientAbundance.pdf')
+  pheatmap(dmat,cellheight=10,cellwidth=10,filename = 'top20GOtermsFoundInpatientVsNormal.pdf')
 
 }
 
