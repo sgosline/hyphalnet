@@ -99,9 +99,10 @@ assignClosestNodes<-function(communityDistanceFile){
     dplyr::select(graph='net1',disease='hyp1',community='net2',commDis='hyp2',distance)
     
   minDists%>%
-      group_by(disease,community,commDis)%>%
+      group_by(disease,commDis)%>%
       summarize(numNets=n_distinct(graph))%>%
-      ggplot(aes(x=community,y=numNets,fill=disease))+geom_bar(stat='identity',position='dodge')+facet_grid(~commDis)+scale_fill_viridis_d()
+      ggplot(aes(x=disease,y=numNets,fill=commDis))+
+    geom_bar(stat='identity',position='dodge')+scale_fill_viridis_d()
   write.csv(minDists,file='networksAndClosestCommunity.csv')
   ggsave('networksAssignedToClosestCommunity.pdf')  
   return(minDists)
@@ -160,6 +161,57 @@ compareGOtoDistance<-function(communityDistanceFile){
     distinct()
   
   assigned.comm<-mod.tab%>%subset(net1_type=='forest')%>%subset(net2_type=='community')%>%group_by(net1,hyp1)%>%filter(distance==min(distance))
+  
+}
+
+
+distanceRidgelines<-function(communityDistanceFile){
+  library(ggplot2)
+  
+  tab<-read.csv(communityDistanceFile,header=T,stringsAsFactors=F)
+  
+  mod.tab<-tab%>%rowwise()%>%
+    mutate(net1_name=stringr::str_c(hyp1,net1,sep='_'))%>%
+    mutate(net2_name=stringr::str_c(hyp2,net2,sep='_'))
+  
+  annotes<-mod.tab%>%
+    dplyr::select(net1_name,net2_name,net1_type,net2_type,hyp1,hyp2)%>%
+    distinct()
+  
+  ###we can probably remove this or alter it once we fix code
+  red.annote<-annotes%>%
+    dplyr::select(sample='net2_name',graph='net2_type',disease='hyp2')%>%
+    distinct()
+  
+  ##remove this oncec we fix code
+  missed<-subset(mod.tab,net2_name%in%setdiff(annotes$net2_name,annotes$net1_name))%>%
+    dplyr::select(net1_name,net2_name,distance)%>%
+    dplyr::rename(net2_name='net1_name',net1_name='net2_name')
+  
+  ##first do each disease
+  res=lapply(unique(mod.tab$hyp1),function(disease){
+    
+    red.tab<-subset(mod.tab,hyp1==disease)%>%
+      subset(hyp2==disease)%>%
+      rename(Community='net2')%>%
+      mutate(Similarity=1-distance)
+    
+  #  red.missed<-subset(red.tab,net2_name%in%setdiff(annotes$net2_name,annotes$net1_name))%>%
+  #    dplyr::select(net1_name,net2_name,distance)%>%
+  #    dplyr::rename(net2_name='net1_name',net1_name='net2_name')
+    comm.tab<-subset(red.tab,net2_type=='community')
+    mean.dist<-comm.tab%>%group_by(Community)%>%summarize(meanSim=mean(Similarity))%>%
+      ungroup()%>%
+      arrange(meanSim)
+    
+    p<-ggplot(comm.tab,
+              aes(x=Similarity,y=Community,fill=Community))+
+      scale_y_discrete(limits = mean.dist$Community)+
+              geom_density_ridges()+ggtitle('Community Forest Overlap')+scale_fill_viridis_d()
+    print(p)
+    ggsave(paste0(disease,'_ridgelines.pdf'))
+    
+    })
   
 }
 
@@ -273,13 +325,19 @@ getCommunityAndClosestsForests<-function(tumorType='brca',comm='0'){
     subset(community==comm)
   
   comGo<-subset(goStats,disease==tumorType)%>%
-    subset(sample==comm||sampl%in%fors$graph)
-
+    filter(networkType=='Community')
+  
+  forGo<-subset(goStats,disease==tumorType)%>%
+    subset(networkType=='Patient')%>%
+    mutate(isClosest=sample%in%fors$graph)
+  
+  hasCom=comGo%>%group_by(name)%>%subset(networkType=='Community')%>%summarize(numComm=n())
+  hasForest=comGo%>%group_by(name)%>%subset(networkType=='Patient')%>%summarize(numForests=n())
 }
 
 goStats<<-getGoValues()
 minDists<<-assignClosestNodes('panCancerDistances.csv')
-
+res=distanceRidgelines('panCancerDistances.csv')
 #forStats() ##how well do the forests recapitulate biology?
 #plotNetworkDistances('panCancerDistances.csv') #how well do the communities summarize the diversity of the forests?
 #forestGOStats()##we get more function for patients, and it agrees with other stuff
