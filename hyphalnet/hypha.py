@@ -7,6 +7,7 @@ import numpy as np
 import pickle
 import matplotlib
 import matplotlib.pyplot as plot
+from sklearn.metrics import confusion_matrix, normalized_mutual_info_score
 
 matplotlib.rcParams['pdf.fonttype'] = 42
 
@@ -90,6 +91,14 @@ class hyphalNetwork:
         forest, augmented_forest = graph.output_forest_as_networkx(verts, edges)
         return forest #TODO: add in parameter shift for 0 size networks
 
+    def _getPCST(self, nodeweights):
+        """
+        uses the pcst_fast package to build a weighted subgraph
+        inferring nodes and returning a larger subgraph
+        """
+        #map nodes to indices in some base file
+        #load indices
+
     def runCommunityWithMultiplex(self):
         """
         Primary method for now
@@ -148,7 +157,7 @@ class hyphalNetwork:
         ##plot the bar plot of communities and networks
         pdf = pd.DataFrame(stat_list)
         if prefix != '':
-            tp = pdf[['Forests', 'Nodes','Enriched terms']]
+            tp = pdf[['Forests', 'Nodes', 'Enriched terms']]
             tp.set_index(pdf['Community'])
             tp.plot.scatter(x='Nodes', y='Forests', c='Enriched terms', \
                             colormap='viridis', fontsize=12)
@@ -308,7 +317,7 @@ def make_graph(gfile):
 def load_from_file(filename):
     """Loads hypha object"""
     print("Loading hypha "+filename)
-    return pickle.load(open(filename,'rb'))
+    return pickle.load(open(filename, 'rb'))
 
 def jaccard_distance(ns_1, ns_2):
     """Computes jaccard distance between two networkx objects"""
@@ -327,3 +336,25 @@ def map_ensPep_to_hgnc():
     tab = pd.read_csv('data/human.name_2_string.tsv', '\t', skiprows=[0], header=None)
     res = dict(zip(tab[2], tab[1]))
     return res
+
+def computeCommunityNMI(comm_dict1, comm_dict2):
+    '''
+    Computes the normalized mutual information metric for two community assignments
+    Used to compare two communities
+    '''
+    c1_vals = dict()
+    c2_vals = dict()
+    for comm, gene in comm_dict1.items():
+        for g in gene:
+            c1_vals[g] = comm
+    for comm, gene in comm_dict2.items():
+        for g in gene:
+            c2_vals[g] = comm
+
+    all_genes = set(list(c1_vals.keys())).intersection(set(list(c2_vals.keys())))
+
+    c1_vec = [c1_vals[g] for g in all_genes]
+    c2_vec = [c2_vals[g] for g in all_genes]
+
+    nmi = normalized_mutual_info_score(c1_vec, c2_vec)
+    return 1-nmi
