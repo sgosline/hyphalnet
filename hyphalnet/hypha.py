@@ -2,6 +2,7 @@ from igraph import *
 import leidenalg as la
 import pandas as pd
 import OmicsIntegrator as oi
+import pcst_fast
 import networkx as nx
 import numpy as np
 import pickle
@@ -60,7 +61,7 @@ class hyphalNetwork:
         nodelist = []
         for nn in nodenames:
             try:
-                nodelist.append(self.interactome.vs.find(name = nn))
+                nodelist.append(self.interactome.vs.find(name = nn)) #TODO: change from OI
             except ValueError:
                 print('Node '+nn+' not found')
         sub_g = self.interactome.subgraph(nodelist)
@@ -97,7 +98,20 @@ class hyphalNetwork:
         inferring nodes and returning a larger subgraph
         """
         #map nodes to indices in some base file
+        edges=self.interactome['edges']
+        nodes = self.interactome['nodes']
+        cost = self.interactome['cost']
+        weights = []
+        for n in nodes:
+            if n in nodeweights.keys():
+                weights.append(nodeweights[n])
+            else:
+                weights.append[0]
+        vert, edges = pcst_fast.pcst_fast(edges,weights,costs,-1,num_clusters=1,pruning='gw')
+
         #load indices
+        #return as igraph
+        node_names=nodes[v for v in vert]
 
     def runCommunityWithMultiplex(self):
         """
@@ -110,7 +124,7 @@ class hyphalNetwork:
         optimizer = la.Optimiser()
         netlist = []
         for nx_g in self.forests.values():
-            netlist.append(self._nx2igraph(nx_g))
+            netlist.append(self._nx2igraph(nx_g)) ##forest is already igraph
         [membership, improv] = la.find_partition_multiplex(netlist,\
                                                            la.ModularityVertexPartition)
         comm_df = pd.DataFrame({'Node': list(self.node_counts.keys()),\
