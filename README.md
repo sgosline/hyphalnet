@@ -9,9 +9,9 @@ We are currently evaluating this approach in three separate domains.
 ## Getting Started
 To run hyphalNet you need to download an interactome.
 
-1 - Download the latest [STRING DB]() interactome
-2 - Download the [mapping file]()
-3 - run `python ./bin/graphTools.py --graphFile [stringfile] --graphSource=string --nodeMapping=[mappingfile] --dest=./data`
+1. Download the latest [STRING DB]() interactome
+2. Download the [mapping file]()
+3. Run `python ./bin/graphTools.py --graphFile [stringfile] --graphSource=string --nodeMapping=[mappingfile] --dest=./data`
 
 ## Cancer Proteomics
 We hypothesize that we can identify underlying patterns across patient cohorts in patient datasets from the [Proteomic Data Commons](https://pdc.cancer.gov/).
