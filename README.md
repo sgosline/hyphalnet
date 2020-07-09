@@ -9,9 +9,9 @@ We are currently evaluating this approach in three separate domains.
 ## Getting Started
 To run hyphalNet you need to download an interactome.
 
-1 - Download the latest [STRING DB](https://stringdb-static.org/download/protein.links.detailed.v11.0/9606.protein.links.detailed.v11.0.txt.gz) interactome
-2 - Download the [mapping file](https://stringdb-static.org/download/protein.info.v11.0/9606.protein.info.v11.0.txt.gz)
-3 - run:
+1. Download the latest [STRING DB](https://stringdb-static.org/download/protein.links.detailed.v11.0/9606.protein.links.detailed.v11.0.txt.gz) interactome
+2. Download the [mapping file](https://stringdb-static.org/download/protein.info.v11.0/9606.protein.info.v11.0.txt.gz)
+3. Run:
 ```
 python ./bin/graphTools.py --graphFile [stringfile] --graphSource=string --nodeMapping=[mappingfile] --dest=./data
 ```
