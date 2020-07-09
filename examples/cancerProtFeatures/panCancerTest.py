@@ -13,7 +13,8 @@ sys.path.insert(0, "../../")
 import hyphalnet.hypha as hyp
 from hyphalnet.hypha import hyphalNetwork
 import hyphalnet.proteomics as prot
-import hyphalnet.hyphEnrich as hype
+import hyphalnet.hyphEnrich as hyEnrich
+import hyphalnet.hyhtaeStats as hyStats
 import pandas as pd
 
 class kvdictAppendAction(argparse.Action):
@@ -48,44 +49,8 @@ parser.add_argument('--fromFile',dest='fromFile', nargs=1,\
                     action=kvdictAppendAction,metavar='KEY=VALUE',\
                     help='Key/value params for extra files')
 
-def compute_all_distances(hyp_dict):
-    """
-    Computes distances between all elements of hyphae in list
-    Parameters
-    ----------
-    hyp_dict: Dictionary of hyphae objects
+gfile='../../data/pcstDictPPI.pkl'
 
-    Returns
-    ----------
-    Pandas data frame with the following keys
-    hyp1: name of hypha 1
-    hyp2: name of hypha 2 (can be the same)
-    net1: name of network/community 1
-    net2: name of network/community 2
-    net1_type: type of network for net1
-    net2_type: type of network for net2
-    distance: distance between two elements, at this point it's jaccard
-    """
-    df_list = []
-    for key1, hyp1 in hyp_dict.items():
-        #compute forest distances
-        within_dist = hyp1.distVals
-        within_dist['hyp1'] = key1
-        within_dist['hyp2'] = key1
-        df_list.append(within_dist)
-        for key2, hyp2 in hyp_dict.items():
-            if key1 != key2:
-                comm_net = hyp1.intra_distance(hyp2)
-                comm_net['hyp1'] = key2
-                comm_net['hyp2'] = key1
-                df_list.append(pd.DataFrame(comm_net))
-                #inter_distance is NOT symmetric
-                comm_net = hyp2.intra_distance(hyp1)
-                comm_net['hyp1'] = key1
-                comm_net['hyp2'] = key2
-                df_list.append(pd.DataFrame(comm_net))
-    dist_df = pd.concat(df_list)
-    return dist_df
 
 def build_hyphae_from_data():
     """ Temp function to load data from local directory"""
@@ -103,9 +68,7 @@ def build_hyphae_from_data():
                 'luad': set([a for a in lungData['Patient'] if a in norms['Lung Adenocarcinoma']]),\
                 'gbm': set([a for a in gbmData['Patient'] if a in norms['Other']])}
 
-#    gfile = '../../../OmicsIntegrator2/interactomes/inbiomap.9.12.2016.full.oi2'
-#    g = hyp.make_graph(gfile)
-    g = hyp.make_graph_from_dict('../../data/pcstDictPPI.pkl')
+    g = hyp.make_graph_from_dict(gfile)
     namemapper = None #hyp.mapHGNCtoNetwork()
 
     ##here we get the top values for each patient
@@ -149,13 +112,13 @@ def main():
     for key, this_hyp in hyphae.items():
         this_hyp.node_stats().to_csv(key+'_nodelist.csv')
         if args.doEnrich:
-            if len(this_hyp.forest_enrichment)==0:
-                for_e = hype.go_enrich_forests(this_hyp, ncbi)
+            if len(this_hye.forest_enrichment)==0:
+                for_e = hyEnrich.go_enrich_forests(this_hyp, ncbi)
                 this_hyp.assign_enrichment(for_e, type='forest')
                 for_e.to_csv(key+'enrichedForestGoTerms.csv')
                 this_hyp._to_file(key+'_hypha.pkl')
             if len(this_hyp.community_enrichment)==0:
-                com_e = hype.go_enrich_communities(this_hyp, ncbi)
+                com_e = hyEnrich.go_enrich_communities(this_hyp, ncbi)
                 this_hyp.assign_enrichment(com_e, type='community')
                 this_hyp._to_file(key+'_hypha.pkl')
                 com_e.to_csv(key+'enrichedCommunityGOterms.csv')
@@ -165,11 +128,10 @@ def main():
 
     #now compute graph distances to ascertain fidelity
     if args.getDist:
-        res = compute_all_distances(hyphae)
+        res = hyStats.compute_all_distances(hyphae)
         res.to_csv('panCancerDistances.csv')
-    #if args.toFile:
-        #saveCommunityToFile(prefix=key)
-
+        nmi = hyStats.compute_all_nmi(hyphae, gfile)
+        nmi.to_csv('panCancerNMI.csv')
 
 if __name__ == '__main__':
     main()

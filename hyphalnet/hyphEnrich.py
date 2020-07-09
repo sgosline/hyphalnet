@@ -15,8 +15,6 @@ def get_kegg_enrichment(genelist, background):
     df = df.dropna().loc[df['q'] < 0.05]
     return df
 
-
-
 def get_go_enrichment(genelist, background):
     O = goenrich.obo.ontology('db/go-basic.obo')
     gene2go = goenrich.read.gene2go('db/gene2go.gz')
@@ -41,7 +39,7 @@ def go_enrich_forests(hyp, ncbi_mapping):
             print("No key for background gene", ns)
     for pat, forest in hyp.forests.items():
         nodenames = []
-        for fn in forest.nodes():
+        for fn in forest.vs()['name']:
             try:
                 nodenames.append(int(ncbi_mapping[fn]))
             except KeyError:
