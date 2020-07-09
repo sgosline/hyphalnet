@@ -1,8 +1,8 @@
 from igraph import *
 import leidenalg as la
 import pandas as pd
-import OmicsIntegrator as oi
-import pcst_fast
+#import OmicsIntegrator as oi
+from pcst_fast import *
 import networkx as nx
 import numpy as np
 import pickle
@@ -35,8 +35,10 @@ class hyphalNetwork:
         self.node_counts = dict() #nodes found in forests and their counts
         for pat in proteinWeights.keys():
             print('Running PCSF for sample '+pat)
-            forest = self._getForest(list(proteinWeights[pat].items()))
-            for node in list(forest.nodes()):
+            #            forest = self._getForest(list(proteinWeights[pat].items()))
+            fast_forest = self._getFastForest(proteinWeights[pat])
+            for node in fast_forest.vs['name']:
+                #list(forest.nodes()):
                 if node in list(self.node_counts.keys()):
                     self.node_counts[node] += 1
                 else:
@@ -47,7 +49,6 @@ class hyphalNetwork:
         self.assignedCommunities = self.community_to_samples()
         print('Created hypha across ', len(self.node_counts), 'nodes and',\
               len(proteinWeights), 'forests')
-
 
     def _to_file(self, fname):
         """ enables saving to file"""
@@ -92,26 +93,40 @@ class hyphalNetwork:
         forest, augmented_forest = graph.output_forest_as_networkx(verts, edges)
         return forest #TODO: add in parameter shift for 0 size networks
 
-    def _getPCST(self, nodeweights):
+    def _getFastForest(self, nodeweights):
         """
         uses the pcst_fast package to build a weighted subgraph
         inferring nodes and returning a larger subgraph
         """
         #map nodes to indices in some base file
-        edges=self.interactome['edges']
+        edges = self.interactome['edges']
         nodes = self.interactome['nodes']
         cost = self.interactome['cost']
+       # print(nodeweights)
         weights = []
         for n in nodes:
+            #print(n)
             if n in nodeweights.keys():
                 weights.append(nodeweights[n])
             else:
-                weights.append[0]
-        vert, edges = pcst_fast.pcst_fast(edges,weights,costs,-1,num_clusters=1,pruning='gw')
-
-        #load indices
+                weights.append(0.0)
+        vert, edge = pcst_fast(edges, weights, cost, -1,1,'gw',0)
         #return as igraph
-        node_names=nodes[v for v in vert]
+        print('found',len(vert),'vertices and',len(edge),'edges')
+        gr = Graph()
+#        print(vert)
+        enodes = set(vert)
+        all_e = [edges[e] for e in edge]
+        for e in all_e:
+ #           print(e)
+            enodes.add(e[0])
+            enodes.add(e[1])
+        gr.add_vertices(enodes)
+        gr.add_edges(all_e)
+        for v in vert:
+            set_vertex_attribute(gr, 'name', index=v, value=nodes[v])
+        print("Returning graph with", len(gr.vs), 'nodes' and len(gr.edges), 'edges')
+        return gr
 
     def runCommunityWithMultiplex(self):
         """
@@ -124,7 +139,7 @@ class hyphalNetwork:
         optimizer = la.Optimiser()
         netlist = []
         for nx_g in self.forests.values():
-            netlist.append(self._nx2igraph(nx_g)) ##forest is already igraph
+            netlist.append(nx_g)#self._nx2igraph(nx_g)) ##forest is already igraph
         [membership, improv] = la.find_partition_multiplex(netlist,\
                                                            la.ModularityVertexPartition)
         comm_df = pd.DataFrame({'Node': list(self.node_counts.keys()),\
@@ -327,6 +342,16 @@ def make_graph(gfile):
     print('making networkx graph for OmicsIntegrator')
     graph = oi.Graph(gfile)
     return graph
+
+def make_graph_from_dict(gfile):
+    """
+   Makes graph from dictionary of nodes and edges
+    """
+    print("Loading edge and node lists from dictionary")
+    gd = pickle.load(open(gfile,'rb'))
+#    print(gd.keys())
+    return gd
+
 
 def load_from_file(filename):
     """Loads hypha object"""

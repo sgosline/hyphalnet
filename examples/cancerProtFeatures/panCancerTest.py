@@ -28,7 +28,8 @@ class kvdictAppendAction(argparse.Action):
             try:
                 (k, v) = val.split("=", 2)
             except ValueError as ex:
-                raise argparse.ArgumentError(self, f"could not parse argument \"{values[0]}\" as k=v format")
+                raise argparse.ArgumentError(self, \
+                                             "could not parse argument \"{values[0]}\" as k=v format")
             d = getattr(args, self.dest) or {}
             d[k] = v
             setattr(args, self.dest, d)
@@ -102,9 +103,9 @@ def build_hyphae_from_data():
                 'luad': set([a for a in lungData['Patient'] if a in norms['Lung Adenocarcinoma']]),\
                 'gbm': set([a for a in gbmData['Patient'] if a in norms['Other']])}
 
-    gfile = '../../../OmicsIntegrator2/interactomes/inbiomap.9.12.2016.full.oi2'
-    g = hyp.make_graph(gfile)
-
+#    gfile = '../../../OmicsIntegrator2/interactomes/inbiomap.9.12.2016.full.oi2'
+#    g = hyp.make_graph(gfile)
+    g = hyp.make_graph_from_dict('../../data/pcstDictPPI.pkl')
     namemapper = None #hyp.mapHGNCtoNetwork()
 
     ##here we get the top values for each patient
