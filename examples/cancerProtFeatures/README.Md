@@ -9,10 +9,9 @@ Currently we have built a suite of tools to evaluate the feasibility of this app
 
 Make sure you have downloaded and built the files according to the [main README file](../../README.Md).
 
-_GO enrichment files_
-You will also need to create a `db` directory and download these files:
-1- [GO OBO file](http://purl.obolibrary.org/obo/go/go-basic.obo)
-2- [Gene GO mapping](ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/gene2go.gz)
+You will also need to create a `db` directory and download these files to run Gene Ontology Enrichmnet:
+1. [GO OBO file](http://purl.obolibrary.org/obo/go/go-basic.obo)
+2. [Gene GO mapping](ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/gene2go.gz)
 
 
 #### Creating HyphalNetworks
@@ -38,5 +37,5 @@ While we have the framework to detect communities we still have to ascertain how
 
 I'm currently working on the following:
 
-1 - Currently I'm downloading the files manually - how do we automate this?
-2 - How do we assess which communities are meaningful?
+1. Currently I'm downloading the files manually - how do we automate this?
+2. How do we assess which communities are meaningful?
