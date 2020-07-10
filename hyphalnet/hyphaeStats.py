@@ -48,17 +48,17 @@ def compute_all_nmi(hyp_dict, gfile):
     """
     Compute the community assignment between all communities
     """
-    full_community = hyp.getCommunityFromFullGraph(gfile)
+    full_community = hyp.communityFromGraphFile(gfile)
     df_list = []
-    for key1,hyp1 in hyp_dict.items():
-        net_dist = {'NMI':hyp.commputeCommunityNMI(full_community,hyp1)}
+    for key1, hyp1 in hyp_dict.items():
+        net_dist = {'NMI':hyp.computeCommunityNMI(full_community,hyp1.communities)}
         net_dist['hyp1'] = key1
         net_dist['hyp2'] = 'Full Network'
-        df_list.append(pd.DataFrame(net_dist))
+        df_list.append(net_dist)
         for key2,hyp2 in hyp_dict.items():
             if key1 != key2:
-                net_dist={'NMI': hyp.commputeCommunityNMI(hyp1,hyp2)}
+                net_dist={'NMI': hyp.computeCommunityNMI(hyp1.communities,hyp2.communities)}
                 net_dist['hyp1']=key1
                 net_dist['hyp2']=key2
-                df_list.append(pd.DataFrame(net_dist))
-    return pd.concat(df_list)
+                df_list.append(net_dist)
+    return pd.DataFrame(df_list)

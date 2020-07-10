@@ -14,7 +14,7 @@ import hyphalnet.hypha as hyp
 from hyphalnet.hypha import hyphalNetwork
 import hyphalnet.proteomics as prot
 import hyphalnet.hyphEnrich as hyEnrich
-import hyphalnet.hyhtaeStats as hyStats
+import hyphalnet.hyphaeStats as hyStats
 import pandas as pd
 
 class kvdictAppendAction(argparse.Action):
@@ -50,7 +50,6 @@ parser.add_argument('--fromFile',dest='fromFile', nargs=1,\
                     help='Key/value params for extra files')
 
 gfile='../../data/pcstDictPPI.pkl'
-
 
 def build_hyphae_from_data():
     """ Temp function to load data from local directory"""
@@ -112,7 +111,7 @@ def main():
     for key, this_hyp in hyphae.items():
         this_hyp.node_stats().to_csv(key+'_nodelist.csv')
         if args.doEnrich:
-            if len(this_hye.forest_enrichment)==0:
+            if len(this_hyp.forest_enrichment)==0:
                 for_e = hyEnrich.go_enrich_forests(this_hyp, ncbi)
                 this_hyp.assign_enrichment(for_e, type='forest')
                 for_e.to_csv(key+'enrichedForestGoTerms.csv')
@@ -123,7 +122,7 @@ def main():
                 this_hyp._to_file(key+'_hypha.pkl')
                 com_e.to_csv(key+'enrichedCommunityGOterms.csv')
             ##next: compare enrichment between patients mapped to communities
-        this_hyp.forest_stats().to_csv(key+'_communityStats.csv')
+        this_hyp.forest_stats().to_csv(key+'_TreeStats.csv')
         this_hyp.community_stats(prefix=key).to_csv(key+'_communityStats.csv')
 
     #now compute graph distances to ascertain fidelity
