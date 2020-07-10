@@ -15,8 +15,6 @@ def get_kegg_enrichment(genelist, background):
     df = df.dropna().loc[df['q'] < 0.05]
     return df
 
-
-
 def get_go_enrichment(genelist, background):
     O = goenrich.obo.ontology('db/go-basic.obo')
     gene2go = goenrich.read.gene2go('db/gene2go.gz')
@@ -31,7 +29,9 @@ def get_go_enrichment(genelist, background):
 
 
 def go_enrich_forests(hyp, ncbi_mapping):
-    """        Iterates through forests and gets enrichment """
+    """
+    Iterates through forests and gets enrichment
+    """
     enrich = []
     background = []
     for ns in hyp.node_counts.keys():
@@ -41,21 +41,26 @@ def go_enrich_forests(hyp, ncbi_mapping):
             print("No key for background gene", ns)
     for pat, forest in hyp.forests.items():
         nodenames = []
-        for fn in forest.nodes():
+        for fn in list(forest.vs['name']):
             try:
                 nodenames.append(int(ncbi_mapping[fn]))
             except KeyError:
                 print("No key for gene", fn)
+            except Exception as e:
+                print('patient', pat, e, len(fn))
+        print("Found matches for", len(nodenames), 'nodes for patient', pat)
         try:
             evals = get_go_enrichment(nodenames, background)
             evals['Patient'] = pat
             enrich.append(evals)
         except Exception as e:
-            print(e)
+            print('patient',pat,e)
     return pd.concat(enrich)
 
 def go_enrich_communities(hyp, ncbi_mapping):
-    """ Gets enrichment for individual communities"""
+    """
+    Gets enrichment for individual communities
+    """
     print('Doing community thing')
     enrich = []
     background = []
@@ -65,7 +70,7 @@ def go_enrich_communities(hyp, ncbi_mapping):
         except KeyError:
             print("No key for background gene", ns)
     for comm, nodes in hyp.communities.items():
-        print(comm)
+      #  print(comm)
         nodenames = []
         for fn in nodes:
             try:
@@ -77,5 +82,5 @@ def go_enrich_communities(hyp, ncbi_mapping):
             evals['Community'] = str(comm)
             enrich.append(evals)
         except Exception as e:
-            print(e)
+            print('community', comm, e)
     return pd.concat(enrich)
