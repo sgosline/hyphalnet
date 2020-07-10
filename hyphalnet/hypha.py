@@ -129,9 +129,6 @@ class hyphalNetwork:
         gr.add_vertices(enodes) ##ADD in all nodes!
         gr.add_edges(all_e)
         ##now remove the zero-vertex nodes
-      #  zd = [v.index for v in gr.vs if v.degree() == 0] #TODO why is this happening???
-      #  print("Removing",len(zd),'zero vertices')
-      #  gr.delete_vertices(zd)
         term=[e for e in enodes if e in nodeweights.keys()]
         print("Created tree from", len(nodeweights), 'proteins with',\
               len(gr.vs), 'nodes (',len(term),'terminals) and', len(gr.es), 'edges')
@@ -267,7 +264,7 @@ class hyphalNetwork:
         for pat, forest in f_dict.items():
             protweights = pd.DataFrame(self.proteins[pat].items(), \
                                        columns=['Gene', 'DisWeight'])
-           # print(nx.get_node_attributes(forest,'prize'))
+           # print(nx.get_node_attributes(forest,'pri          ze'))
         #    nodevals = pd.DataFrame(nx.get_node_attributes(forest, 'prize').items(),\
         #                            columns=['Gene', 'ForestPrize'])
             #print(nodevals)
@@ -320,8 +317,8 @@ class hyphalNetwork:
             else:
                 ntrees.append(0)
 
-        gred.vs['Community']=comms
-        gred.vs['NumTrees']=ntrees
+        gred.vs['Community'] = comms
+        gred.vs['NumTrees'] = ntrees
         print('Adding membership to network option')
         #nx.set_node_attributes(gred,membership,'Community')
         gred.write_graphmlz(prefix+'_communityGraph.graphml.gz')
@@ -333,19 +330,21 @@ class hyphalNetwork:
         Takes a query network and computes distance to all
         networks within hypha
         """
-        g_nodes = set(g_query.vs())
+        g_nodes = set(g_query.vs['name'])
         net_dist = {}
         for pat, forest in self.forests.items():
-            net_dist[pat] = jaccard_distance(set(forest.vs()), g_nodes)
+            net_dist[pat] = jaccard_distance(set(forest.vs['name']), g_nodes)
         net_df = pd.DataFrame(net_dist.items(), columns=['net2', 'distance'])
         net_df['net1_type'] = 'forest'
         net_df['net2_type'] = 'forest'
         return net_df
 
     def distance_to_communities(self, g_query):
-        """computes distance between entry graph and communities in hypha"""
+        """
+        computes distance between entry graph and communities in hypha
+        """
         #print('Computing difference from graph to all communities')
-        g_nodes = set(g_query.vs())
+        g_nodes = set(g_query.vs['name'])
         comm_dist = {}
         for comm, nodes in self.communities.items():
             comm_dist[comm] = jaccard_distance(set(nodes), g_nodes)
