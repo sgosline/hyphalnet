@@ -290,9 +290,9 @@ class hyphalNetwork:
         print('Creating graph with community annotations')
         #first build entire graph
         gr = getIgraph(self.interactome)
-        #now reduce graph to only those nodes in the community
+        #now reduce graph to only those nodes in the forests
         rednodes = set()
-        [rednodes.update(cn) for cn in self.communities.values()]
+        [rednodes.update(cn.vs['name']) for cn in self.forests.values()]#communities.values()]
         gred = gr.subgraph(rednodes)
         print("Reducing full interactome of",len(gr.es),\
               "edges and",len(gr.vs),"nodes to one with",len(gred.es),\
@@ -374,9 +374,9 @@ class hyphalNetwork:
         for pat, forest in hyp2.forests.items():
             #iterate through each element in the other hypha
             net_dist = self.distance_to_networks(forest)
+            net_dist['net1'] = pat
             comm_dist = self.distance_to_communities(forest)
             comm_dist['net1'] = pat
-            net_dist['net1'] = pat
             df_list.append(comm_dist)
             df_list.append(net_dist)
 #        for comm, nodelist in hyp2.communities.items(): TODO
@@ -418,6 +418,9 @@ def jaccard_distance(ns_1, ns_2):
     """Computes jaccard distance between two networkx objects"""
     #print('Computing distance between graphs by jaccard')
     u_size = len(ns_1.union(ns_2))
+    print("Computing Jaccard...",u_size)
+ #   print(ns_1)
+ #   print(ns_2)
     if u_size == 0:
         return 1.0
     return 1-len(ns_1.intersection(ns_2))/u_size

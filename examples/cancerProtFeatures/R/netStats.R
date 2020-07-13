@@ -167,7 +167,7 @@ compareGOtoDistance<-function(communityDistanceFile){
 
 distanceRidgelines<-function(communityDistanceFile){
   library(ggplot2)
-  
+  library(ggridges)
   tab<-read.csv(communityDistanceFile,header=T,stringsAsFactors=F)
   
   mod.tab<-tab%>%rowwise()%>%
