@@ -128,10 +128,14 @@ class hyphalNetwork:
 
         gr.add_vertices(enodes) ##ADD in all nodes!
         gr.add_edges(all_e)
+        ##now add in edge names
+        for edge in gr.es:
+            edge['name'] = '_'.join(gr.vs.select(edge.tuple)['name'])
+
         ##now remove the zero-vertex nodes
-        term=[e for e in enodes if e in nodeweights.keys()]
+        term = [e for e in enodes if e in nodeweights.keys()]
         print("Created tree from", len(nodeweights), 'proteins with',\
-              len(gr.vs), 'nodes (',len(term),'terminals) and', len(gr.es), 'edges')
+              len(gr.vs), 'nodes (', len(term), 'terminals) and', len(gr.es), 'edges')
         return gr
 
     def runCommunityWithMultiplex(self):
@@ -147,11 +151,18 @@ class hyphalNetwork:
         all_nodes = set()
         [all_nodes.update(ig.vs['name']) for ig in self.forests.values()]
         print("Have", len(all_nodes), 'total nodes')
-        for nx_g in self.forests.values():
-            tmp_g = nx_g.copy() ###this is apointer, make sure to copy!!
-            tmp_g.add_vertices([a for a in all_nodes.difference(set(nx_g.vs['name']))]) ##need to a in missing vertsxs
+        for nx_g in self.forests.values(): ##i'm not convince the forests have the same node/edge indices
+            tmp_g = Graph()#nx_g.copy() ###this is apointer, make sure to copy!!
+            tmp_g.add_vertices([a for a in all_nodes])#[a for a in all_nodes.difference(set(nx_g.vs['name']))]) ##need to a in missing vertsxs
+            for ed in nx_g.es:
+                eps = nx_g.vs.select(ed.tuple)['name']
+                tmp_g.add_edge(eps[0],eps[1])
             print("Graph now has", len(tmp_g.es), 'edges and', len(tmp_g.vs), 'nodes')
-            print("Orig graph still has",len(nx_g.vs),'nodes')
+            ##compare to copy approach
+            other_tmp = nx_g.copy()
+            other_tmp.add_vertices([a for a in all_nodes.difference(set(nx_g.vs['name']))])
+            print("Copied graph has",len(other_tmp.es),'edges and',len(other_tmp.vs),'nodes')
+            #print("Orig graph still has", len(nx_g.vs), 'nodes')
             netlist.append(tmp_g)#self._nx2igraph(nx_g)) ##forest is already igraph
         [membership, improv] = la.find_partition_multiplex(netlist,\
                                                            la.ModularityVertexPartition)
@@ -281,47 +292,62 @@ class hyphalNetwork:
 
     def to_graph(self, prefix=''):
         """
-        Currently plots community to graph file
+        Currently plots community to graph file using all the nodes from the original
+        interactome
 
         Returns
         -------
-        None.
+        igraph Graph object
         """
         print('Creating graph with community annotations')
         #first build entire graph
         gr = getIgraph(self.interactome)
-        #now reduce graph to only those nodes in the forests
+        #now reduce graph to only those nodes in the communities
         rednodes = set()
-        [rednodes.update(cn.vs['name']) for cn in self.forests.values()]#communities.values()]
-        gred = gr.subgraph(rednodes)
-        print("Reducing full interactome of",len(gr.es),\
-              "edges and",len(gr.vs),"nodes to one with",len(gred.es),\
-              "edges and",len(gred.vs),"nodes")
-        node_comm={}
-        for comm,nodelist in self.communities.items():
-            for n in nodelist:
-                node_comm[n]=comm
-        #nodes = self.communities[commName]
-        #cred = gred.subgraph(list(nodes))
-        nc = {node:self.node_counts[node] for node in list(rednodes)}
-        #nx.set_node_attributes(cred, nc, name='Number of forests')
-        comms=[]
-        ntrees=[]
-        for n in gr.vs['name']:
-            if n in node_comm.keys():
-                comms.append(node_comm[n])
-            else:
-                comms.append('None')
-            if n in nc.keys():
-                ntrees.append(nc[n])
-            else:
-                ntrees.append(0)
+        nodecomm = {}
+        nodecount = {}
+        #[rednodes.update(cn.vs['name']) for cn in self.forests.values()]#communities.values()]
+        for comm,nodes in self.communities.items():
+            rednodes.update(nodes)
+            for n in nodes:
+                nodecomm[n] = comm
+                nodecount[n] = self.node_counts[n]
 
+        gred = gr.subgraph(rednodes)
+        print("Reducing full interactome of", len(gr.es),\
+              "edges and", len(gr.vs), "nodes to one with", len(gred.es),\
+              "edges and", len(gred.vs), "nodes")
+
+
+        ###now we add nodes attributes to represent the communities
+        comms = [nodecomm[n] for n in gred.vs['name']]
+        ntrees = [nodecount[n] for n in gred.vs['name']]
+
+        print('Adding membership to network option')
         gred.vs['Community'] = comms
         gred.vs['NumTrees'] = ntrees
-        print('Adding membership to network option')
+
+        #to keep track of edges lets name them
+        print("Renaming edges based on nodes")
+        for edge in gred.es:
+            edge['name']='_'.join(gred.vs.select(edge.tuple)['name'])
+        ##then we add edge weights to represent the number of forests
+        for_count = {}
+        for e in gred.es['name']:
+            for_count[e] = 0
+
+        for f in self.forests.values():
+            newgraph = gred.intersection(f)#check to see if edge is in forest
+            edge_over = set(f.es['name']).intersection(set(gred.es['name']))
+            print("We have",len(newgraph.es),'edges and',len(edge_over),'edges by graph and set intersection respectively')
+            for ed in edge_over:
+                #ed_name = '_'.join(gred.vs.select(ed.tuple)['name'])
+                #add count for name
+                for_count[ed] = for_count[ed]+1
+        #print(for_count)
+        gred.es['numForests'] = [for_count[e] for e in gred.es['name']]
         #nx.set_node_attributes(gred,membership,'Community')
-        gred.write_graphmlz(prefix+'_communityGraph.graphml.gz')
+        gred.write_graphml(prefix+'_communityGraph.graphml')
         return gred
 
     def distance_to_networks(self, g_query):
@@ -418,7 +444,7 @@ def jaccard_distance(ns_1, ns_2):
     """Computes jaccard distance between two networkx objects"""
     #print('Computing distance between graphs by jaccard')
     u_size = len(ns_1.union(ns_2))
-    print("Computing Jaccard...",u_size)
+   # print("Computing Jaccard...",u_size)
  #   print(ns_1)
  #   print(ns_2)
     if u_size == 0:
