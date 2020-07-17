@@ -6,6 +6,7 @@ from pcst_fast import *
 import numpy as np
 import pickle
 import matplotlib
+import os
 import matplotlib.pyplot as plot
 from sklearn.metrics import confusion_matrix, normalized_mutual_info_score
 
@@ -18,7 +19,7 @@ class hyphalNetwork:
     The hypha class represents a set of individual sample networks/graphs and
     creates the communities shared between each
     """
-    def __init__(self, proteinWeights, interactome):
+    def __init__(self, proteinWeights, beta, interactome):
         """
         Hypha class
         Based a dictionary of proteins with weights and an interactome,
@@ -32,10 +33,10 @@ class hyphalNetwork:
         self.community_enrichment = {} # enriched terms
         self.forest_enrichment = dict() #enriched terms
         self.node_counts = dict() #nodes found in forests and their counts
-        for pat in list(proteinWeights.keys()):
+        for pat in list(proteinWeights.keys())[0:10]:
             print('Running PCSF for sample '+pat)
             #            forest = self._getForest(list(proteinWeights[pat].items()))
-            fast_forest = self._getFastForest(proteinWeights[pat])
+            fast_forest = self._getFastForest(proteinWeights[pat],beta)
             self.forests[pat] = fast_forest
             for node in fast_forest.vs['name']:
                 #list(forest.nodes()):
@@ -44,6 +45,7 @@ class hyphalNetwork:
                 else:
                     self.node_counts[node] = 1
         self.communities = self.runCommunityWithMultiplex()
+        #print(self.communities)
         ##now we create various statistics to compare communities
         #what is the distance (jaccard) between trees and communities?
         self.distVals = self.within_distances() #compute distances between forests
@@ -100,7 +102,7 @@ class hyphalNetwork:
         forest, augmented_forest = graph.output_forest_as_networkx(verts, edges)
         return forest #TODO: add in parameter shift for 0 size networks
 
-    def _getFastForest(self, nodeweights):
+    def _getFastForest(self, nodeweights,beta):
         """
         uses the pcst_fast package to build a weighted subgraph
         inferring nodes and returning a larger subgraph
@@ -114,17 +116,17 @@ class hyphalNetwork:
         for n in nodes:
             #print(n)
             if n in nodeweights.keys():
-                weights.append(nodeweights[n])
+                weights.append(nodeweights[n]*beta)
             else:
                 weights.append(0.0)
-        vert, edge = pcst_fast(edges, weights, cost, -1,1,'gw',0)
+        vert, edge = pcst_fast(edges, weights, cost, -1, 1, 'strong', 0)
         #return as igraph
         gr = Graph()
         #this takes mapping the edges back to the original node values which can
         #be compared across graphs
         enodes = [nodes[v] for v in vert]
         edge_i = [edges[e] for e in edge]
-        all_e = [[nodes[e[0]],nodes[e[1]]] for e in edge_i]
+        all_e = [[nodes[e[0]], nodes[e[1]]] for e in edge_i]
 
         gr.add_vertices(enodes) ##ADD in all nodes!
         gr.add_edges(all_e)
@@ -150,28 +152,29 @@ class hyphalNetwork:
         netlist = []
         all_nodes = set()
         [all_nodes.update(ig.vs['name']) for ig in self.forests.values()]
-        print("Have", len(all_nodes), 'total nodes')
+        #print("Have", len(all_nodes), 'total nodes')
         for nx_g in self.forests.values(): ##i'm not convince the forests have the same node/edge indices
             tmp_g = Graph()#nx_g.copy() ###this is apointer, make sure to copy!!
             tmp_g.add_vertices([a for a in all_nodes])#[a for a in all_nodes.difference(set(nx_g.vs['name']))]) ##need to a in missing vertsxs
             for ed in nx_g.es:
                 eps = nx_g.vs.select(ed.tuple)['name']
-                tmp_g.add_edge(eps[0],eps[1])
+                tmp_g.add_edge(eps[0], eps[1])
             print("Graph now has", len(tmp_g.es), 'edges and', len(tmp_g.vs), 'nodes')
             ##compare to copy approach
             other_tmp = nx_g.copy()
             other_tmp.add_vertices([a for a in all_nodes.difference(set(nx_g.vs['name']))])
-            print("Copied graph has",len(other_tmp.es),'edges and',len(other_tmp.vs),'nodes')
+            #print("Copied graph has", len(other_tmp.es), 'edges and', len(other_tmp.vs), 'nodes')
             #print("Orig graph still has", len(nx_g.vs), 'nodes')
             netlist.append(tmp_g)#self._nx2igraph(nx_g)) ##forest is already igraph
         [membership, improv] = la.find_partition_multiplex(netlist,\
-                                                           la.ModularityVertexPartition)
+                                                           la.RBERVertexPartition)
+#                                                           la.ModularityVertexPartition)
         comm_df = pd.DataFrame({'Node': list(self.node_counts.keys()),\
                            'Community': membership})
         comm_counts = comm_df.groupby("Community")['Node'].count()
         comm_dict = dict(comm_df.groupby('Community')['Node'].apply(list))
-        red_list = [comm_dict[c] for c in comm_counts.index[comm_counts > 1]]
-        red_dict = dict(zip(comm_counts.index[comm_counts > 1], red_list))
+        red_list = [comm_dict[c] for c in comm_counts.index[comm_counts > 5]]
+        red_dict = dict(zip(comm_counts.index[comm_counts > 5], red_list))
         for comm, vals in red_dict.items():
             print("Community", comm, 'has', len(vals), 'nodes')
         return red_dict
@@ -330,7 +333,7 @@ class hyphalNetwork:
         #to keep track of edges lets name them
         print("Renaming edges based on nodes")
         for edge in gred.es:
-            edge['name']='_'.join(gred.vs.select(edge.tuple)['name'])
+            edge['name'] = '_'.join(gred.vs.select(edge.tuple)['name'])
         ##then we add edge weights to represent the number of forests
         for_count = {}
         for e in gred.es['name']:
@@ -347,7 +350,14 @@ class hyphalNetwork:
         #print(for_count)
         gred.es['numForests'] = [for_count[e] for e in gred.es['name']]
         #nx.set_node_attributes(gred,membership,'Community')
-        gred.write_graphml(prefix+'_communityGraph.graphml')
+        ##full community graph is too big.
+        try:
+            os.mkdir('./'+prefix+'_graphs/')
+        except OSError:
+            print("Directory already exists")
+        for comm,nodes in self.communities.items():
+            new_graph = gred.subgraph(nodes)
+            new_graph.write_graphml(prefix+'_graphs/community'+str(comm)+'_'+prefix+'_graph.graphml')
         return gred
 
     def distance_to_networks(self, g_query):
@@ -370,7 +380,7 @@ class hyphalNetwork:
         computes distance between entry graph and communities in hypha
         """
         #print('Computing difference from graph to all communities')
-        g_nodes = set(g_query.vs['name'])
+        g_nodes = set(g_query.vs['name'])
         comm_dist = {}
         for comm, nodes in self.communities.items():
             comm_dist[comm] = jaccard_distance(set(nodes), g_nodes)

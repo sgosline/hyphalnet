@@ -95,7 +95,7 @@ def getProtsByPatient(tdf, namemapper=None, column='logratio', quantThresh=0.01)
     return res
 
 
-def getTumorNorm(tdf, normSamps, namemapper=None, column='logratio', quantThresh=0.01):
+def getTumorNorm(tdf, normSamps, namemapper=None, column='logratio', quantThresh=0.01,doAbs=False):
     """
     Gets per-patient tumor values compared to pooled normal
     TODO: update to do matched normal instead
@@ -120,11 +120,17 @@ def getTumorNorm(tdf, normSamps, namemapper=None, column='logratio', quantThresh
 
     #now calculate absolute value to get top quantile
     fd['absVal'] = np.abs(fd['diffsToNormal'])
-    dquants = pd.DataFrame({'thresh':fd.groupby("Patient")['absVal'].quantile(1.0-quantThresh)})
+    dquants = pd.DataFrame({'absThresh':fd.groupby("Patient")['absVal'].quantile(1.0-quantThresh)})
+    topquants = pd.DataFrame({'thresh':fd.groupby("Patient")['diffsToNormal'].quantile(1.0-quantThresh)})
 
     #which genes/patientss are abve that threshold
-    fd = fd.merge(dquants, on='Patient')
-    fd = fd.assign(topProt=fd['absVal'] > fd['thresh'])
+    fd = fd.merge(dquants, on='Patient').merge(topquants, on='Patient')
+
+    if doAbs:
+        fd = fd.assign(topProt=fd['absVal'] > fd['absThresh'])
+    else:
+        fd = fd.assign(topProt=fd['diffsToNormal'] > fd['thresh'])
+
     selvals = fd[fd['topProt']]
     dprots = selvals.groupby('Patient')['Gene'].apply(list).to_dict()
     dvals = selvals.groupby("Patient")['absVal'].apply(list).to_dict() #can't do neg prizes

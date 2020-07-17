@@ -34,27 +34,33 @@ def go_enrich_forests(hyp, ncbi_mapping):
     """
     enrich = []
     background = []
-    for ns in hyp.node_counts.keys():
+    missed=0
+    for ns in hyp.interactome['nodes']:
+        #node_counts.keys():
         try:
             background.append(ncbi_mapping[ns])
         except KeyError:
-            print("No key for background gene", ns)
+            missed = missed+1
+    print("Have background of", len(background), 'missing', missed)
+    missed = 0
     for pat, forest in hyp.forests.items():
+        #hyp.forests.items():
         nodenames = []
         for fn in list(forest.vs['name']):
             try:
                 nodenames.append(int(ncbi_mapping[fn]))
             except KeyError:
-                print("No key for gene", fn)
+                #print("No key for gene", fn)
+                missed = missed+1
             except Exception as e:
                 print('patient', pat, e, len(fn))
-        print("Found matches for", len(nodenames), 'nodes for patient', pat)
+        print("Found matches for", len(nodenames), 'nodes for patient', pat, 'missing', missed)
         try:
             evals = get_go_enrichment(nodenames, background)
             evals['Patient'] = pat
             enrich.append(evals)
         except Exception as e:
-            print('patient',pat,e)
+            print('patient', pat, e)
     return pd.concat(enrich)
 
 def go_enrich_communities(hyp, ncbi_mapping):
@@ -64,11 +70,16 @@ def go_enrich_communities(hyp, ncbi_mapping):
     print('Doing community thing')
     enrich = []
     background = []
-    for ns in hyp.node_counts.keys():
+    missed = 0
+    for ns in hyp.interactome['nodes']:
+        #hyp.node_counts.keys():
         try:
             background.append(ncbi_mapping[ns])
         except KeyError:
-            print("No key for background gene", ns)
+            #print("No key for background gene", ns)
+            missed = missed+1
+    print("Have background of", len(background), 'missing', missed)
+    missed = 0
     for comm, nodes in hyp.communities.items():
       #  print(comm)
         nodenames = []
@@ -76,7 +87,8 @@ def go_enrich_communities(hyp, ncbi_mapping):
             try:
                 nodenames.append(int(ncbi_mapping[fn]))
             except KeyError:
-                print("No key for gene", fn)
+                #print("No key for gene", fn)
+                missed = missed +1
         try:
             evals = get_go_enrichment(nodenames, background)
             evals['Community'] = str(comm)
