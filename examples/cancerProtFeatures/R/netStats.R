@@ -203,13 +203,17 @@ distanceRidgelines<-function(communityDistanceFile){
     mean.dist<-comm.tab%>%group_by(Community)%>%summarize(meanSim=mean(Similarity))%>%
       ungroup()%>%
       arrange(meanSim)
-    
+    comStat<-read.csv(paste0(disease,'_communityStats.csv'))%>%
+        select(Community,Nodes)%>%
+      mutate(Community=as.character(Community))%>%
+      mutate(numProteins=as.numeric(Nodes))
+    comm.tab<-comm.tab%>%left_join(comStat)
     p<-ggplot(comm.tab,
-              aes(x=Similarity,y=Community,fill=Community))+
+              aes(x=Similarity,y=Community,fill=numProteins))+
       scale_y_discrete(limits = mean.dist$Community)+
-              geom_density_ridges()+ggtitle('Community Forest Overlap')+scale_fill_viridis_d()
+              geom_density_ridges()+ggtitle('Community Forest Overlap')+scale_fill_viridis_b()
     print(p)
-    ggsave(paste0(disease,'_ridgelines.pdf'))
+    ggsave(paste0(disease,'_ridgelines.pdf'),height=11)
     
     })
   
@@ -339,6 +343,6 @@ goStats<<-getGoValues()
 minDists<<-assignClosestNodes('panCancerDistances.csv')
 res=distanceRidgelines('panCancerDistances.csv')
 #forStats() ##how well do the forests recapitulate biology?
-#plotNetworkDistances('panCancerDistances.csv') #how well do the communities summarize the diversity of the forests?
+plotNetworkDistances('panCancerDistances.csv') #how well do the communities summarize the diversity of the forests?
 #forestGOStats()##we get more function for patients, and it agrees with other stuff
 

@@ -47,10 +47,12 @@ parser.add_argument('--getDistances', dest='getDist', action='store_true',\
 parser.add_argument('--fromFile',dest='fromFile', nargs=1,\
                     action=kvdictAppendAction,metavar='KEY=VALUE',\
                     help='Key/value params for extra files')
+parser.add_argument('--quantile',dest='qt',default=0.01,type=float,\
+                    help='Threshold to select top proteins from each patient')
 
 gfile='../../data/pcstDictPPI.pkl'
 
-def build_hyphae_from_data():
+def build_hyphae_from_data(qt):
     """ Temp function to load data from local directory"""
     ##this is the framework for the PDC data parser.
     norms = prot.normals_from_manifest('data/PDC_biospecimen_manifest_05112020_184928.csv')
@@ -76,17 +78,18 @@ def build_hyphae_from_data():
              'gbm':prot.getProtsByPatient(gbmData, namemapper)}
 
     #here we get the top most distinguished from normals
-    patDiffs = {'brca': prot.getTumorNorm(bcData, normPats['brca'], namemapper),
-                'luad': prot.getTumorNorm(lungData, normPats['luad'], namemapper),
-                'coad': prot.getTumorNorm(colData, normPats['coad'], namemapper),
-                'gbm': prot.getTumorNorm(gbmData, normPats['gbm'], namemapper)}
+    patDiffs = {'brca': prot.getTumorNorm(bcData, normPats['brca'], namemapper,quantThresh=qt),
+                'luad': prot.getTumorNorm(lungData, normPats['luad'], namemapper,quantThresh=qt),
+                'coad': prot.getTumorNorm(colData, normPats['coad'], namemapper,quantThresh=qt),
+                'gbm': prot.getTumorNorm(gbmData, normPats['gbm'], namemapper,quantThresh=qt)}
     #now we want to build network communities for each
     hyphae = dict()
 
+    beta=0.5
     for key in patDiffs:
-        this_hyp = hyphalNetwork(patDiffs[key], g)
-        hyphae[key] = this_hyp
-        this_hyp._to_file(key+'_hypha.pkl')
+        this_hyp = hyphalNetwork(patDiffs[key],beta, g)
+        hyphae[key+str(qt)] = this_hyp
+        this_hyp._to_file(key+str(qt)+'_hypha.pkl')
     return hyphae
 
 def loadFromFile(file_name_dict):
@@ -95,15 +98,17 @@ def loadFromFile(file_name_dict):
         hyphae[key] = hyp.load_from_file(fname)
     return hyphae
 
+
 def main():
     args = parser.parse_args()
 
     #this is a hack - fix this!
-    bcData = prot.parsePDCfile('data/CPTAC2_Breast_Prospective_Collection_BI_Proteome.tmt10.tsv')
-    ncbi = prot.map_ncbi_to_gene(bcData)
+    #bcData = prot.parsePDCfile('data/CPTAC2_Breast_Prospective_Collection_BI_Proteome.tmt10.tsv')
+    ncbi = pd.read_csv('../../data/gene_to_ncbi.txt',sep='\t', dtype={'NCBI Gene ID':str}).dropna()
+    ncbi = dict(zip(ncbi['Approved symbol'],ncbi['NCBI Gene ID']))
 
     if args.fromFile is None:
-        hyphae = build_hyphae_from_data()
+        hyphae = build_hyphae_from_data(args.qt)
     else:
         hyphae = loadFromFile(args.fromFile)
 
