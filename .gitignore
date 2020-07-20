@@ -128,3 +128,14 @@ dmypy.json
 # Pyre type checker
 .pyre/
 .Rproj.user
+*pkl
+examples/cancerProtFeatures/data/
+.RData
+.Rhistory
+.Rprofile
+*.graphml
+*.pdf
+*.tsv
+*.csv
+*.png
+data/9606*
