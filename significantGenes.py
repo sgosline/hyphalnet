@@ -53,7 +53,7 @@ parser.add_argument('--fromFile',dest='fromFile', nargs=1,\
 gfile='../../data/pcstDictPPI.pkl'
 
 syn = synapseclient.Synapse()
-syn.login('Lthura', 'ZBB6rfd2510!')
+syn.login()
 data = syn.tableQuery("SELECT * FROM syn22172602").asDataFrame()
 
 
