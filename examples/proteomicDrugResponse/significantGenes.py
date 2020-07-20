@@ -2,7 +2,7 @@
 """
 Created on Mon Apr 13 20:05:29 2020
 
-@author: gosl241
+@author: lthura
 """
 
 import argparse
