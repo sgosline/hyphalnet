@@ -70,15 +70,15 @@ def significant_genes(data_frame, group, subgroup, value):
     data_frame['zscore'] = stats.zscore(data_frame[value])
     significant = data[abs(data['zscore']) >= 2.58]
     gene_dictionary = dictionary_creator(significant, group, subgroup, value)
-    return gene_dictionary
+ #   return gene_dictionary
     
     g = hyp.make_graph_from_dict(gfile)
     
     hyphae = dict()
-    for key in significant_genes:
-        this_hyp = hyphalNetwork(significant_genes[key], g)
-        hyphae[key] = this_hyp
-        this_hyp._to_file(key+'_hypha.pkl')
+    #for key in significant_genes:
+    this_hyp = hyphalNetwork(significant_genes, g)
+    hyphae['protein'] = this_hyp
+    this_hyp._to_file(key+'_hypha.pkl')
     return hyphae
 
 
