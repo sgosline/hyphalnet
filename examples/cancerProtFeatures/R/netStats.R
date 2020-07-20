@@ -109,14 +109,14 @@ assignClosestNodes<-function(communityDistanceFile){
 }
 
 
-getGoValues<-function(communityVals=list(luad='luadenrichedCommunityGOterms.csv',
-                                        brca='brcaenrichedCommunityGOterms.csv',
-                                        gbm='gbmenrichedCommunityGOterms.csv',
-                                        coad='coadenrichedCommunityGOterms.csv'),
-                     forestVals=list(luad='luadenrichedForestGoTerms.csv',
-                                     brca='brcaenrichedForestGoTerms.csv',
-                                     gbm='gbmenrichedForestGoTerms.csv',
-                                     coad='coadenrichedForestGoTerms.csv')){
+getGoValues<-function(communityVals=list(luad='luad0.01enrichedCommunityGOterms.csv',
+                                        brca='brca0.01enrichedCommunityGOterms.csv',
+                                        gbm='gbm0.01enrichedCommunityGOterms.csv',
+                                        coad='coad0.01enrichedCommunityGOterms.csv'),
+                     forestVals=list(luad='luad0.01enrichedForestGoTerms.csv',
+                                     brca='brca0.01enrichedForestGoTerms.csv',
+                                     gbm='gbm0.01enrichedForestGoTerms.csv',
+                                     coad='coad0.01enrichedForestGoTerms.csv')){
   
   commGo=do.call(rbind,lapply(names(communityVals),function(x){
     print(x)

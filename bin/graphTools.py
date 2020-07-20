@@ -32,27 +32,29 @@ def buildIgraphFromFile(fname, dest_dir):
     '''
     igg = ig.Graph.Read_Ncol(fname)
     pickle.dump(igg, open(dest_dir+'/igraphPPI.pkl', "wb"))
+    return igg
 
 def buildNxFromFile(fname, dest_dir):
     tnet = nx.readwrite.edgelist.read_weighted_edgelist(fname)
     pickle.dump(tnet, open(dest_dir+'/networkPPI.pkl', "wb"))
 
 
-def buildPCSTDictFromFile(fname, dest_dir):
+def buildPCSTDictFromFile(fname, dest_dir,igg):
     '''
     creates a dictionary with the required input from pcst_fast package
     '''
     pcst_dict = {'edges':[], 'nodes':[], 'edgeWeights':[]}
     #first read in mapping file
     tab = pd.read_csv(fname, sep='\t')
-    nodes = list(set(tab.iloc[:0]).union(set(tab.iloc[:,1])))
+    nodes = igg.vs['name']#list(set(tab.iloc[:0]).union(set(tab.iloc[:,1])))
     weights = tab.iloc[:,2]
     edges = []
+    deg = igg.degree()
     for index, row in tab.iterrows():
         i1 = nodes.index(row[0])
         i2 = nodes.index(row[1])
         edges.append([i1,i2])
-    pcst_dict = {'edges':edges, 'nodes':nodes, 'edgeWeights':weights, 'cost':1-weights}
+    pcst_dict = {'edges':edges, 'nodes':nodes, 'edgeWeights':weights, 'cost':1-weights,'degree':deg}
 
     pickle.dump(pcst_dict, open(dest_dir+"/pcstDictPPI.pkl", "wb" ))
 
@@ -80,8 +82,8 @@ def main():
 
     fname=write_to_file(tab, mapping)
     buildNxFromFile(fname, args.destDir)
-    buildIgraphFromFile(fname, args.destDir)
-    buildPCSTDictFromFile(fname, args.destDir)
+    ig=buildIgraphFromFile(fname, args.destDir)
+    buildPCSTDictFromFile(fname, args.destDir,ig)
 
 
 if __name__ == '__main__':

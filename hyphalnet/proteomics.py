@@ -19,12 +19,9 @@ def normals_from_manifest(fname):
     Dictionary of normal samples by disease type
     """
     dat = pd.read_csv(fname, sep=',')
-    return dat.groupby("Disease Type")['Aliquot Submitter ID'].apply(list).to_dict()
-
-def map_ncbi_to_gene(tdat):
-    """ takes a  parsed file and returns dictionary of gene maps"""
-    tdat = tdat.loc[~tdat['Gene'].isin(list(['Mean', 'Median', 'StdDev']))]
-    return dict(zip(tdat['Gene'], [str(int(a)) for a in tdat['NCBIGeneID']]))
+    nd = dat.groupby("Disease Type")['Aliquot Submitter ID'].apply(list).to_dict()
+    print(nd.keys())
+    return nd
 
 def parsePDCfile(fpath='data/CPTAC2_Breast_Prospective_Collection_BI_Proteome.tmt10.tsv'):
     """
@@ -59,7 +56,7 @@ def parsePDCfile(fpath='data/CPTAC2_Breast_Prospective_Collection_BI_Proteome.tm
 
 def getProtsByPatient(tdf, namemapper=None, column='logratio', quantThresh=0.01):
     """
-        Gets proteins from tidied data frame into dictionary for OI
+        Gets proteins from tidied data frame into dictionary for HyphalNetwork
 
         Parameters
         ----------
@@ -95,7 +92,7 @@ def getProtsByPatient(tdf, namemapper=None, column='logratio', quantThresh=0.01)
     return res
 
 
-def getTumorNorm(tdf, normSamps, namemapper=None, column='logratio', quantThresh=0.01,doAbs=False):
+def getTumorNorm(tdf, normSamps, namemapper=None, column='logratio', quantThresh=0.01, doAbs=False):
     """
     Gets per-patient tumor values compared to pooled normal
     TODO: update to do matched normal instead

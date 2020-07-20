@@ -24,7 +24,7 @@ def get_go_enrichment(genelist, background):
     goenrich.enrich.propagate(O, values, background_attribute)
     df = goenrich.enrich.analyze(O, np.array(genelist), background_attribute)
     df = df.dropna().loc[df['q'] < 0.05]
-    df = df.dropna().loc[df['namespace']=='biological_process']
+ #   df = df.dropna().loc[df['namespace']=='biological_process']
     return df
 
 
@@ -34,7 +34,7 @@ def go_enrich_forests(hyp, ncbi_mapping):
     """
     enrich = []
     background = []
-    missed=0
+    missed = 0
     for ns in hyp.interactome['nodes']:
         #node_counts.keys():
         try:
@@ -42,9 +42,9 @@ def go_enrich_forests(hyp, ncbi_mapping):
         except KeyError:
             missed = missed+1
     print("Have background of", len(background), 'missing', missed)
-    missed = 0
     for pat, forest in hyp.forests.items():
-        #hyp.forests.items():
+        missed = 0
+    #hyp.forests.items():
         nodenames = []
         for fn in list(forest.vs['name']):
             try:
@@ -89,6 +89,8 @@ def go_enrich_communities(hyp, ncbi_mapping):
             except KeyError:
                 #print("No key for gene", fn)
                 missed = missed +1
+        print("Found matches for", len(nodenames), 'nodes for community', comm, 'missing', missed)
+        missed=0
         try:
             evals = get_go_enrichment(nodenames, background)
             evals['Community'] = str(comm)

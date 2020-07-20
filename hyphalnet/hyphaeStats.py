@@ -25,6 +25,7 @@ def compute_all_distances(hyp_dict):
     """
     df_list = []
     for key1, hyp1 in hyp_dict.items():
+        print("Computing distances from", key1)
         #compute forest distances
         within_dist = hyp1.distVals
         within_dist['hyp1'] = key1
@@ -48,6 +49,7 @@ def compute_all_nmi(hyp_dict, gfile):
     """
     Compute the community assignment between all communities
     """
+    print("Computing NMI")
     full_community = hyp.communityFromGraphFile(gfile)
     df_list = []
     for key1, hyp1 in hyp_dict.items():

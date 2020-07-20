@@ -55,39 +55,46 @@ gfile='../../data/pcstDictPPI.pkl'
 def build_hyphae_from_data(qt):
     """ Temp function to load data from local directory"""
     ##this is the framework for the PDC data parser.
-    norms = prot.normals_from_manifest('data/PDC_biospecimen_manifest_05112020_184928.csv')
+    norms = prot.normals_from_manifest('data/PDC_biospecimen_manifest_07182020_151323.csv')
 
 #    bcData = prot.parsePDCfile('data/TCGA_Breast_BI_Proteome.itraq.tsv')
     bcData = prot.parsePDCfile('data/CPTAC2_Breast_Prospective_Collection_BI_Proteome.tmt10.tsv')
     lungData = prot.parsePDCfile('data/CPTAC3_Lung_Adeno_Carcinoma_Proteome.tmt10.tsv')
     colData = prot.parsePDCfile('data/CPTAC2_Colon_Prospective_Collection_PNNL_Proteome.tmt10.tsv')
     gbmData = prot.parsePDCfile('data/CPTAC3_Glioblastoma_Multiforme_Proteome.tmt11.tsv')
+    hccData = prot.parsePDCfile('data/Zhou_Liver_Cancer_Proteome.tmt11.tsv')
+    hnsccData = prot.parsePDCfile('data/CPTAC3_Head_and_Neck_Carcinoma_Proteome.tmt11.tsv')
+    ovcaData = prot.parsePDCfile('data/TCGA_Ovarian_PNNL_Proteome.itraq.tsv')
 
     normPats = {'brca': set([a for a in bcData['Patient'] if a in norms['Breast Invasive Carcinoma']]),\
                 'coad': set([a for a in colData['Patient'] if a in norms['Colon Adenocarcinoma']]),\
                 'luad': set([a for a in lungData['Patient'] if a in norms['Lung Adenocarcinoma']]),\
-                'gbm': set([a for a in gbmData['Patient'] if a in norms['Other']])}
+                'gbm': set([a for a in gbmData['Patient'] if a in norms['Other']]),
+                'hcc': set([a for a in hccData['Patient'] if a in ['P'+n for n in norms['Hepatocellular Carcinoma ']]]),\
+                'ovca': set([a for a in ovcaData['Patient'] if a in norms['Ovarian Serious Cystadenocarcinoma']]),\
+                'hnscc': set([a for a in hnsccData['Patient'] if a in norms['Head and Neck Squamous Cell Carcinoma']])}
+
+    for key,np in normPats.items():
+        print(len(np), 'normals for', key)
 
     g = hyp.make_graph_from_dict(gfile)
     namemapper = None #hyp.mapHGNCtoNetwork()
 
-    ##here we get the top values for each patient
-    patVals = {'brca':prot.getProtsByPatient(bcData, namemapper),\
-               'luad':prot.getProtsByPatient(lungData, namemapper),\
-             'coad':prot.getProtsByPatient(colData, namemapper),\
-             'gbm':prot.getProtsByPatient(gbmData, namemapper)}
-
     #here we get the top most distinguished from normals
-    patDiffs = {'brca': prot.getTumorNorm(bcData, normPats['brca'], namemapper,quantThresh=qt),
-                'luad': prot.getTumorNorm(lungData, normPats['luad'], namemapper,quantThresh=qt),
-                'coad': prot.getTumorNorm(colData, normPats['coad'], namemapper,quantThresh=qt),
-                'gbm': prot.getTumorNorm(gbmData, normPats['gbm'], namemapper,quantThresh=qt)}
+    patDiffs = {'hnscc': prot.getTumorNorm(hnsccData, normPats['hnscc'], namemapper, quantThresh=qt),
+               # 'ovca': prot.getTumorNorm(ovcaData, normPats['ovca'], namemapper, quantThresh=qt),
+                'hcc': prot.getTumorNorm(hccData, normPats['hcc'], namemapper, quantThresh=qt),
+                'brca': prot.getTumorNorm(bcData, normPats['brca'], namemapper, quantThresh=qt),
+                'luad': prot.getTumorNorm(lungData, normPats['luad'], namemapper, quantThresh=qt),
+                'coad': prot.getTumorNorm(colData, normPats['coad'], namemapper, quantThresh=qt),
+                'gbm': prot.getTumorNorm(gbmData, normPats['gbm'], namemapper, quantThresh=qt)}
+
     #now we want to build network communities for each
     hyphae = dict()
 
     beta=0.5
-    for key in patDiffs:
-        this_hyp = hyphalNetwork(patDiffs[key],beta, g)
+    for key, vals in patDiffs.items():
+        this_hyp = hyphalNetwork(vals, g.copy())
         hyphae[key+str(qt)] = this_hyp
         this_hyp._to_file(key+str(qt)+'_hypha.pkl')
     return hyphae
@@ -102,32 +109,14 @@ def loadFromFile(file_name_dict):
 def main():
     args = parser.parse_args()
 
-    #this is a hack - fix this!
-    #bcData = prot.parsePDCfile('data/CPTAC2_Breast_Prospective_Collection_BI_Proteome.tmt10.tsv')
-    ncbi = pd.read_csv('../../data/gene_to_ncbi.txt',sep='\t', dtype={'NCBI Gene ID':str}).dropna()
-    ncbi = dict(zip(ncbi['Approved symbol'],ncbi['NCBI Gene ID']))
+    # First read in NCBI mapping for GO enrichmnet
+    ncbi = pd.read_csv('../../data/gene_to_ncbi.txt', sep='\t', dtype={'NCBI Gene ID':str}).dropna()
+    ncbi = dict(zip(ncbi['Approved symbol'], ncbi['NCBI Gene ID']))
 
     if args.fromFile is None:
         hyphae = build_hyphae_from_data(args.qt)
     else:
         hyphae = loadFromFile(args.fromFile)
-
-    for key, this_hyp in hyphae.items():
-        this_hyp.node_stats().to_csv(key+'_nodelist.csv')
-        if args.doEnrich:
-            if len(this_hyp.forest_enrichment)==0:
-                for_e = hyEnrich.go_enrich_forests(this_hyp, ncbi)
-                this_hyp.assign_enrichment(for_e, type='forest')
-                for_e.to_csv(key+'enrichedForestGoTerms.csv')
-                this_hyp._to_file(key+'_hypha.pkl')
-            if len(this_hyp.community_enrichment)==0:
-                com_e = hyEnrich.go_enrich_communities(this_hyp, ncbi)
-                this_hyp.assign_enrichment(com_e, type='community')
-                this_hyp._to_file(key+'_hypha.pkl')
-                com_e.to_csv(key+'enrichedCommunityGOterms.csv')
-            ##next: compare enrichment between patients mapped to communities
-        this_hyp.forest_stats().to_csv(key+'_TreeStats.csv')
-        this_hyp.community_stats(prefix=key).to_csv(key+'_communityStats.csv')
 
     #now compute graph distances to ascertain fidelity
     if args.getDist:
@@ -135,6 +124,23 @@ def main():
         res.to_csv('panCancerDistances.csv')
         nmi = hyStats.compute_all_nmi(hyphae, gfile)
         nmi.to_csv('panCancerNMI.csv')
+
+    for key, this_hyp in hyphae.items():
+        this_hyp.node_stats().to_csv(key+'_nodelist.csv')
+        if args.doEnrich:
+            if len(this_hyp.forest_enrichment) == 0:
+                for_e = hyEnrich.go_enrich_forests(this_hyp, ncbi)
+                this_hyp.assign_enrichment(for_e, type='forest')
+                for_e.to_csv(key+'enrichedForestGoTerms.csv')
+                this_hyp._to_file(key+'_hypha.pkl')
+            if len(this_hyp.community_enrichment) == 0:
+                com_e = hyEnrich.go_enrich_communities(this_hyp, ncbi)
+                this_hyp.assign_enrichment(com_e, type='community')
+                this_hyp._to_file(key+'_hypha.pkl')
+                com_e.to_csv(key+'enrichedCommunityGOterms.csv')
+            ##next: compare enrichment between patients mapped to communities
+        this_hyp.forest_stats().to_csv(key+'_TreeStats.csv')
+        this_hyp.community_stats(prefix=key).to_csv(key+'_communityStats.csv')
 
 if __name__ == '__main__':
     main()
