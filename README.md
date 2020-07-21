@@ -6,9 +6,15 @@ This project represents the implementation of community detection algorithms in 
 
 We are currently evaluating this approach in three separate domains.
 
-## Getting Started
-To run hyphalNet you need to download an interactome.
+## Install
+To install the package, clone the repository.
+1. ``` git clone https://github.com/sgosline/hyphalnet.git```
+2. Then run: ```sudo python setup.py install```
 
+This will install the package and its files. 
+
+## Getting Started
+To run hyphalNet you need to download an interactome and create an `igraph` Graph and compress it using `pickle`. This script will do it for you.
 1. Download the latest [STRING DB](https://stringdb-static.org/download/protein.links.detailed.v11.0/9606.protein.links.detailed.v11.0.txt.gz) interactome
 2. Download the [mapping file](https://stringdb-static.org/download/protein.info.v11.0/9606.protein.info.v11.0.txt.gz)
 3. Run:
