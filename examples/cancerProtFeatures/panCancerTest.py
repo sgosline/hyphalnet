@@ -7,7 +7,6 @@ Created on Mon Apr 13 20:05:29 2020
 
 import argparse
 import sys
-sys.path.insert(0, "../../")
 
 import hyphalnet.hypha as hyp
 from hyphalnet.hypha import hyphalNetwork
@@ -16,6 +15,7 @@ import hyphalnet.hyphEnrich as hyEnrich
 import hyphalnet.hyphaeStats as hyStats
 import pandas as pd
 import pickle
+import random
 
 class kvdictAppendAction(argparse.Action):
     """
@@ -50,6 +50,8 @@ parser.add_argument('--fromFile',dest='fromFile', nargs=1,\
                     help='Key/value params for extra files')
 parser.add_argument('--quantile',dest='qt',default=0.01,type=float,\
                     help='Threshold to select top proteins from each patient')
+parser.add_argument('--sample', dest='sample', default=False, action='store_true',\
+                    help='Use this flag if you want to sample 5 patients from each disease to test')
 
 gfile='../../data/igraphPPI.pkl'
 
@@ -90,7 +92,7 @@ def loadCancerData(qt):
                 'gbm': prot.getTumorNorm(gbmData, normPats['gbm'], namemapper, quantThresh=qt)}
     return patDiffs
 
-def build_hyphae_from_data(qt,g):
+def build_hyphae_from_data(qt,g,sample=False):
     """ Temp function to load data from local directory"""
     ##this is the framework for the PDC data parser.
 
@@ -99,6 +101,12 @@ def build_hyphae_from_data(qt,g):
     patDiffs = loadCancerData(qt)
     beta=0.5
     for key, vals in patDiffs.items():
+        if sample:
+            new_vals = {}
+            for v in random.sample(list(vals),5):
+                new_vals[v]= vals[v]
+            vals = new_vals
+            print(len(vals))
         this_hyp = hyphalNetwork(vals, g.copy())
         hyphae[key+str(qt)] = this_hyp
         this_hyp._to_file(key+str(qt)+'_hypha.pkl')
@@ -116,7 +124,7 @@ def main():
 
     g = pickle.load(open(gfile, 'rb'))#hyp.make_graph_from_dict(gfile)
     if args.fromFile is None:
-        hyphae = build_hyphae_from_data(args.qt, g)
+        hyphae = build_hyphae_from_data(args.qt, g,args.sample)
     else:
         hyphae = loadFromFile(args.fromFile)
 
@@ -131,12 +139,12 @@ def main():
         this_hyp.node_stats().to_csv(key+'_nodelist.csv')
         if args.doEnrich:
             if len(this_hyp.forest_enrichment) == 0:
-                for_e = hyEnrich.go_enrich_forests(this_hyp, ncbi)
+                for_e = hyEnrich.go_enrich_forests(this_hyp)
                 this_hyp.assign_enrichment(for_e, type='forest')
                 for_e.to_csv(key+'enrichedForestGoTerms.csv')
                 this_hyp._to_file(key+'_hypha.pkl')
             if len(this_hyp.community_enrichment) == 0:
-                com_e = hyEnrich.go_enrich_communities(this_hyp, ncbi)
+                com_e = hyEnrich.go_enrich_communities(this_hyp)
                 this_hyp.assign_enrichment(com_e, type='community')
                 this_hyp._to_file(key+'_hypha.pkl')
                 com_e.to_csv(key+'enrichedCommunityGOterms.csv')

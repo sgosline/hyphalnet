@@ -7,7 +7,6 @@ import argparse
 import sys
 #sys.path.insert(0, '../../')
 
-
 import hyphalnet.hypha as hyp
 from hyphalnet.hypha import hyphalNetwork
 import hyphalnet.hyphEnrich as hyEnrich

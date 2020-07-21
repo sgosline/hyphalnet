@@ -18,11 +18,11 @@ def get_kegg_enrichment(genelist, background):
     return df
 
 def get_go_enrichment(genelist, background):
-    obo = pkg_resources.resource_stream(__name__, 'data/go-basic.obo')
-    gg = pkg_resources.resource_stream(__name__, 'data/gene2go.gz')
-    O = goenrich.obo.ontology(obo)#'db/go-basic.obo')
-    gene2go = goenrich.read.gene2go(gg) #'db/gene2go.gz')
+    obo = pkg_resources.resource_filename(__name__, 'data/go-basic.obo')
+    O = goenrich.obo.ontology(obo) #'db/go-basic.obo')
 
+    gg = pkg_resources.resource_filename(__name__, 'data/gene2go.gz')
+    gene2go = goenrich.read.gene2go(gg) #'db/gene2go.gz')
     values = {k: set(v) for k, v in gene2go.groupby('GO_ID')['GeneID']}
     background_attribute = 'gene2go'
     goenrich.enrich.propagate(O, values, background_attribute)
@@ -35,8 +35,8 @@ def get_ncbi():
     ncbi_file = pkg_resources.resource_stream(__name__, 'data/gene_to_ncbi.txt')
     ncbi = pd.read_csv(ncbi_file, sep='\t', dtype={'NCBI Gene ID':str}).dropna()
     ncbi_mapping = dict(zip(ncbi['Approved symbol'], ncbi['NCBI Gene ID']))
+    #print(ncbi_mapping)
     return ncbi_mapping
-
 
 def go_enrich_forests(hyp):
     """
@@ -83,7 +83,7 @@ def go_enrich_communities(hyp):
     enrich = []
     background = []
     missed = 0
-    ncbi_maping = get_ncbi()
+    ncbi_mapping = get_ncbi()
     for ns in hyp.interactome.vs['name']:
         #['nodes']:
         #hyp.node_counts.keys():
