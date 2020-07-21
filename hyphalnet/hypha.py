@@ -65,8 +65,11 @@ class hyphalNetwork:
         pickle.dump(self, open(fname, 'wb'))
 
     def _getPPIdict(self):
-        """
-            Converts igraph to dictionary that can be used by `pcst_fast`
+        """Converts igraph to dictionary that can be used by `pcst_fast`
+        Args:
+           None
+        Returns:
+          A dictionary with `edges`, `nodes`, `weight`, `cost`, and `degree` items
         """
         ig = self.interactome
         print("Saving igraph to dict")
@@ -76,9 +79,13 @@ class hyphalNetwork:
         return pcst_dict
 
     def _weightByDegree(self, ig, g):
-        """
-        re-weights edges based on degree
-        Trick comes from Nurcan's paper, where she down-weights high-degree nodes
+        """ Re-weights edges based on degree and gamma (g) parameter
+        Args:
+          ig: iGraph graph
+          g: Gamma paraameter
+        Returns:
+          An iGraph object wiht updated 'cost' elements
+
         """
         print('Adding degree updates to cost')
         N = len(ig.vs)
@@ -178,14 +185,17 @@ class hyphalNetwork:
         return pd.DataFrame(comms)
 
     def community_stats(self, prefix=''):
-        """
-        computes stats about community and returns data frame
+        """Computes stats about community and returns data frame
         These statistics include:
         - number of nodes in each community
         - number of forests that are 'closest' to each community
         - number of terms enriched for each community
         - will create graphML file to be loaded into cytoscape if prefix is not empty
         - NMI between communities and original graph
+        Args:
+           prefix: String to use to write hte graph and plot to file
+        Returns:
+           Data frame with columns describing statistics for each community
         """
 
         ##get the assigned communities

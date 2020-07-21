@@ -114,10 +114,6 @@ def loadFromFile(file_name_dict):
 def main():
     args = parser.parse_args()
 
-    # First read in NCBI mapping for GO enrichmnet
-    ncbi = pd.read_csv('../../data/gene_to_ncbi.txt', sep='\t', dtype={'NCBI Gene ID':str}).dropna()
-    ncbi = dict(zip(ncbi['Approved symbol'], ncbi['NCBI Gene ID']))
-
     g = pickle.load(open(gfile, 'rb'))#hyp.make_graph_from_dict(gfile)
     if args.fromFile is None:
         hyphae = build_hyphae_from_data(args.qt, g)
