@@ -45,21 +45,21 @@ def compute_all_distances(hyp_dict):
     dist_df = pd.concat(df_list)
     return dist_df
 
-def compute_all_nmi(hyp_dict, gfile):
+def compute_all_nmi(hyp_dict, g):
     """
     Compute the community assignment between all communities
     """
     print("Computing NMI")
-    full_community = hyp.communityFromGraphFile(gfile)
+    full_community = hyp.communityFromGraph(g)
     df_list = []
     for key1, hyp1 in hyp_dict.items():
-        net_dist = {'NMI':hyp.computeCommunityNMI(full_community,hyp1.communities)}
+        net_dist = {'NMI':hyp.computeCommunityNMI(full_community, hyp1.communities)}
         net_dist['hyp1'] = key1
         net_dist['hyp2'] = 'Full Network'
         df_list.append(net_dist)
         for key2,hyp2 in hyp_dict.items():
             if key1 != key2:
-                net_dist={'NMI': hyp.computeCommunityNMI(hyp1.communities,hyp2.communities)}
+                net_dist={'NMI': hyp.computeCommunityNMI(hyp1.communities, hyp2.communities)}
                 net_dist['hyp1']=key1
                 net_dist['hyp2']=key2
                 df_list.append(net_dist)

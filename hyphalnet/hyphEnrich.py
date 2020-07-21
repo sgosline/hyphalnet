@@ -35,7 +35,7 @@ def go_enrich_forests(hyp, ncbi_mapping):
     enrich = []
     background = []
     missed = 0
-    for ns in hyp.interactome['nodes']:
+    for ns in hyp.interactome.vs['name']:
         #node_counts.keys():
         try:
             background.append(ncbi_mapping[ns])
@@ -46,7 +46,7 @@ def go_enrich_forests(hyp, ncbi_mapping):
         missed = 0
     #hyp.forests.items():
         nodenames = []
-        for fn in list(forest.vs['name']):
+        for fn in list([hyp.interactome.vs['name'][i] for i in forest['vert']]):
             try:
                 nodenames.append(int(ncbi_mapping[fn]))
             except KeyError:
@@ -71,7 +71,8 @@ def go_enrich_communities(hyp, ncbi_mapping):
     enrich = []
     background = []
     missed = 0
-    for ns in hyp.interactome['nodes']:
+    for ns in hyp.interactome.vs['name']:
+        #['nodes']:
         #hyp.node_counts.keys():
         try:
             background.append(ncbi_mapping[ns])

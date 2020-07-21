@@ -27,31 +27,30 @@ class hyphalNetwork:
         finds the communities shared between them
         """
         self.proteins = proteinWeights #dictionary of protein weights for each forest
-        self.interactome = interactome #interactome
+        ##do some interactome processing
+        self.interactome = self._weightByDegree(interactome, g)
+        self.idict = self._getPPIdict()
         # Add costs to each edge, proportional to the degrees of the nodes it connects, modulated by parameter g.
-        N = len(self.interactome['nodes'])
-        node_degrees = self.interactome['degree']
-        edge_penalties = (10**g) * np.array([node_degrees[a] * node_degrees[b] /
-                                             ((N - node_degrees[a] - 1) * (N - node_degrees[b] - 1) + node_degrees[a] * node_degrees[b]) for a, b in self.interactome['edges']])
-
-        self.interactome['cost'] = (self.interactome['cost'] + edge_penalties)
 
         self.forests = dict()#forests
-        self.community_enrichment = {} # enriched terms
+        self.community_enrichment = dict() # enriched terms
         self.forest_enrichment = dict() #enriched terms
+
         self.node_counts = dict() #nodes found in forests and their counts
         for pat in list(proteinWeights.keys()):
-            print('Running PCSF for sample '+pat)
+            print('Building tree for sample '+pat+' with',len(proteinWeights[pat]), 'proteins')
             #            forest = self._getForest(list(proteinWeights[pat].items()))
             fast_forest = self._getFastForest(proteinWeights[pat], beta, do_forest)
             self.forests[pat] = fast_forest
-            for node in fast_forest.vs['name']:
+            for ni in fast_forest['vert']:
+                #fast_forest.vs['name']:
                 #list(forest.nodes()):
+                node = self.interactome.vs['name'][ni]
                 if node in list(self.node_counts.keys()):
                     self.node_counts[node] += 1
                 else:
                     self.node_counts[node] = 1
-        self.communities = self.runCommunityWithMultiplex()
+        self.communities, self.comm_graphs = self.runCommunityWithMultiplex()
         #print(self.communities)
         ##now we create various statistics to compare communities
         #what is the distance (jaccard) between trees and communities?
@@ -65,33 +64,36 @@ class hyphalNetwork:
         """ enables saving to file"""
         pickle.dump(self, open(fname, 'wb'))
 
-    def _nx2igraph(self, nx_graph):
+    def _getPPIdict(self):
         """
-        Helper function that maps networkx object to igraph
-        TODO: deprecrate
+            Converts igraph to dictionary that can be used by `pcst_fast`
         """
-        new_g = Graph(directed=False)
-        alln = self.node_counts.keys()
-        for n in alln:
-            new_g.add_vertex(n)
-        for e in nx_graph.edges():
-            new_g.add_edge(e[0], e[1])
-        return new_g
+        ig = self.interactome
+        print("Saving igraph to dict")
+        edges = np.array([e.tuple for e in ig.es])
+        pcst_dict = {'edges':edges, 'nodes':ig.vs['name'], 'weight':ig.es['weight'],\
+                     'cost':ig.es['cost'], 'degree':ig.degree}
+        return pcst_dict
 
-    def _getForest(self, nodeweights):
+    def _weightByDegree(self, ig, g):
         """
-        Uses the omics integrator package to build a weighted subgrpah, inferring
-        additional nodes and returning a larger subgraph on the interatome
-        DEPRECATED
+        re-weights edges based on degree
+        Trick comes from Nurcan's paper, where she down-weights high-degree nodes
         """
-        #map nodes interactome
-        pdf = pd.DataFrame(nodeweights)
-        pdf.columns = ['name', 'prize']
-        graph = self.interactome
-        graph._prepare_prizes(pdf)
-        verts, edges = graph.pcsf()
-        forest, augmented_forest = graph.output_forest_as_networkx(verts, edges)
-        return forest #TODO: add in parameter shift for 0 size networks
+        print('Adding degree updates to cost')
+        N = len(ig.vs)
+        node_degrees = ig.degree()
+        edge_penalties = np.array([])
+        #for e in ig.es:
+        #    a,b = e.tuple
+        edge_penalties = np.array([(10**g) * node_degrees[e.tuple[0]] * node_degrees[e.tuple[1]] /
+                                             ((N - node_degrees[e.tuple[0]] - 1) * \
+                                              (N - node_degrees[e.tuple[1]] - 1) + \
+                                               node_degrees[e.tuple[0]] * node_degrees[e.tuple[1]]) \
+                                              for e in ig.es])
+
+        ig.es['cost'] = 1.0 - np.array(ig.es['weight']) + edge_penalties
+        return ig
 
     def _getFastForest(self, nodeweights, beta, do_forest=False, w=4):
         """
@@ -99,14 +101,13 @@ class hyphalNetwork:
         inferring nodes and returning a larger subgraph
         """
         #map nodes to indices in some base file
-        edges = self.interactome['edges']
-        nodes = self.interactome['nodes']
-        cost = self.interactome['cost']
+        edges = self.idict['edges']
+        nodes = self.idict['nodes']
+        cost = self.idict['cost']
 
         orig_node_count = len(nodes)
         orig_edge_count = len(edges)
 
-        #do_forest = True# False
         dummy = -1
         weights = np.zeros(orig_node_count)
         if do_forest:
@@ -116,7 +117,7 @@ class hyphalNetwork:
         for n in set(nodes).intersection(nodeweights.keys()):
             ni = nodes.index(n)
             weights[ni] = nodeweights[n]*beta
-            if do_forest:
+            if do_forest: ##TODO: move this to igraph!!!
                 edges = np.append(edges, [[dummy, ni]], axis=0)
                 cost = np.append(cost, w)
 
@@ -125,25 +126,7 @@ class hyphalNetwork:
                   orig_edge_count, 'for', len(nodeweights), 'terminals')
         vert, edge = pcst_fast(edges, weights, cost, dummy, 1, 'strong', 0)
         #return as igraph
-        gr = Graph()
-
-        #this takes mapping the edges back to the original node values which can
-        #be compared across graphs
-        enodes = [nodes[v] for v in vert if v < orig_node_count]
-        edge_i = [edges[e] for e in edge if e < orig_edge_count]
-        all_e = [[nodes[e[0]], nodes[e[1]]] for e in edge_i]
-
-        gr.add_vertices(enodes) ##ADD in all nodes!
-        gr.add_edges(all_e)
-        ##now add in edge names
-        for edge in gr.es:
-            edge['name'] = '_'.join(gr.vs.select(edge.tuple)['name'])
-
-        ##now remove the zero-vertex nodes
-        term = [e for e in enodes if e in nodeweights.keys()]
-        print("Created tree from", len(nodeweights), 'proteins with',\
-              len(gr.vs), 'nodes (', len(term), 'terminals) and', len(gr.es), 'edges')
-        return gr
+        return {'vert':vert, 'edge':edge} ##IS IT WORTH RETURNING A GRAPH?
 
     def runCommunityWithMultiplex(self):
         """
@@ -156,34 +139,30 @@ class hyphalNetwork:
         optimizer = la.Optimiser()
         netlist = []
         all_nodes = set()
-        [all_nodes.update(ig.vs['name']) for ig in self.forests.values()]
-        #print("Have", len(all_nodes), 'total nodes')
+        for pat, vals in self.forests.items():
+            all_nodes.update([self.interactome.vs['name'][i] for i in vals['vert']])
+        print("Have", len(all_nodes), 'total nodes')
+        for_graph = self.interactome#.subgraph(all_nodes)
         for nx_g in self.forests.values(): ##i'm not convince the forests have the same node/edge indices
-            tmp_g = Graph()#nx_g.copy() ###this is apointer, make sure to copy!!
-            tmp_g.add_vertices([a for a in all_nodes])#[a for a in all_nodes.difference(set(nx_g.vs['name']))]) ##need to a in missing vertsxs
-            for ed in nx_g.es:
-                eps = nx_g.vs.select(ed.tuple)['name']
-                tmp_g.add_edge(eps[0], eps[1])
-            tmp_g = tmp_g.simplify()
-            #print("Graph now has", len(tmp_g.es), 'edges and', len(tmp_g.vs), 'nodes')
-            ##compare to copy approach
-            #other_tmp = nx_g.copy()
-            #other_tmp.add_vertices([a for a in all_nodes.difference(set(nx_g.vs['name']))])
-            #print("Copied graph has", len(other_tmp.es), 'edges and', len(other_tmp.vs), 'nodes')
-            #print("Orig graph still has", len(nx_g.vs), 'nodes')
-            netlist.append(tmp_g)#self._nx2igraph(nx_g)) ##forest is already igraph
+            tmp_g = for_graph.subgraph_edges(nx_g['edge'],\
+                                             delete_vertices=False)#Graph()#nx_g.copy() ###this is apointer, make sur
+            netlist.append(tmp_g)
         [membership, improv] = la.find_partition_multiplex(netlist,\
                                                            #la.RBERVertexPartition)
                                                            la.ModularityVertexPartition)
-        comm_df = pd.DataFrame({'Node': list(self.node_counts.keys()),\
-                           'Community': membership})
+        comm_df = pd.DataFrame({'Node': for_graph.vs['name'],\
+                                'Community': membership})
         comm_counts = comm_df.groupby("Community")['Node'].count()
         comm_dict = dict(comm_df.groupby('Community')['Node'].apply(list))
         red_list = [comm_dict[c] for c in comm_counts.index[comm_counts > 5]]
         red_dict = dict(zip(comm_counts.index[comm_counts > 5], red_list))
+        red_graph = {}
         for comm, vals in red_dict.items():
-            print("Community", comm, 'has', len(vals), 'nodes')
-        return red_dict
+            rgraph = self.interactome.subgraph(vals)
+            red_graph[comm] = rgraph
+            print("Community", comm, " graph has", len(vals),'proteins and',\
+                  len(rgraph.components()), 'component')
+        return red_dict, red_graph
 
     def node_stats(self):
         """
@@ -191,7 +170,7 @@ class hyphalNetwork:
         """
         comms = []
         for no, vals in self.node_counts.items():
-            ndict = {'Node': no,'NumForests': vals}
+            ndict = {'Node': no, 'NumForests': vals}
             for comm, nodelist in self.communities.items():
                 if no in nodelist:
                     ndict['Community'] = comm
@@ -309,73 +288,26 @@ class hyphalNetwork:
         igraph Graph object
         """
         print('Creating graph with community annotations')
-        #first build entire graph from the interactome - this provides the edges between the community
-        gr = getIgraph(self.interactome)
-
-        #now reduce graph to only those nodes in the communities, we don't need the rest.
-
-        #for each node we want to collect two attributes:
-        nodecomm = {} #the community to which this node belongs
-        nodecount = {} #the number of times this node showed up in at tree
-        for comm, nodes in self.communities.items():
-            #rednodes.update(nodes)
-            for n in nodes:
-                nodecomm[n] = comm
-                nodecount[n] = self.node_counts[n]
-        rednodes = nodecomm.keys()
-        gred = gr.subgraph(rednodes)
-        #print('Full graph attributes')
-        #print(gr.es.attributes())
-        #print("reduced attributes")
-        #print(gred.es.attributes())
-
-    #    gred.es['weight'] = gr.es['weight']
-    #    gred.es['name'] = gr.es['name']
-    #    gred.vs['name'] = gr.vs['name']
-
-        print("Reducing full interactome of", len(gr.es),\
-              "edges and", len(gr.vs), "nodes to one with", len(gred.es),\
-              "edges and", len(gred.vs), "nodes with", len(gred.components()), \
-              'connected components')
-
-        ###now we add nodes attributes to represent the communities
-        comms = [nodecomm[n] for n in gred.vs['name']]
-        ntrees = [nodecount[n] for n in gred.vs['name']]
-
-        print('Adding membership to network option')
-        gred.vs['Community'] = comms
-        gred.vs['NumTrees'] = ntrees
-
-        ##now we go through all the edges and see how many forests they were in
-        for_count = {}
-        for e in gred.es['name']:
-            for_count[e] = 0
-
-        for pat, f in self.forests.items():
-            #newgraph = gred.intersection(f)#check to see if edge is in forest
-            try:
-                edge_over = set(f.es['name']).intersection(set(gred.es['name']))
-            except KeyError:
-                print('Missing edge name for', pat, 'tree of size',len(f.vs))
-                edge = set()
-            #print("We have",len(newgraph.es),'edges and',len(edge_over),'edges by graph and set intersection respectively')
-            for ed in edge_over:
-                #ed_name = '_'.join(gred.vs.select(ed.tuple)['name'])
-                #add count for name
-                for_count[ed] = for_count[ed]+1
-        #print(for_count)
-        gred.es['numForests'] = [for_count[e] for e in gred.es['name']]
-        #nx.set_node_attributes(gred,membership,'Community')
-        ##full community graph is too big.
         try:
             os.mkdir('./'+prefix+'_graphs/')
         except OSError:
             print("Directory already exists")
-        for comm, nodes in self.communities.items():
-            new_graph = gred.subgraph(nodes).simplify(combine_edges=dict(weight='max', name='first', numForests='max'))
-            print('Saving community',comm,'with',len(nodes), 'nodes and', len(new_graph.components()), 'components')
-            new_graph.write_graphml(prefix+'_graphs/community'+str(comm)+'_'+prefix+'_graph.graphml')
-        return gred
+
+        graph_list = []
+        full_graph = Graph(directed=False)
+        for comm, comm_graph in self.comm_graphs.items():
+            comm_graph.vs['Community'] = comm
+            comm_graph.vs['numForests'] = [self.node_counts[d] for d in comm_graph.vs['name']]
+            graph_list.append(comm_graph.to_undirected())
+#            new_graph = gred.subgraph(nodes).simplify(combine_edges=dict(weight='max', name='first', numForests='max'))
+            print('Saving community', comm, 'with', len(comm_graph.vs), 'nodes and', len(comm_graph.components()), 'components')
+            comm_graph.write_graphml(prefix+'_graphs/community'+str(comm)+'_'+prefix+'_graph.graphml')
+        try:
+            full_graph = full_graph.disjoint_union(graph_list)
+            print('Full graph has',len(full_graph.vs),'nodes and',len(full_graph.es),'edges')
+        except:
+            print("Couldn't create graph")
+        return full_graph
 
     def distance_to_networks(self, g_query):
         """
@@ -383,10 +315,12 @@ class hyphalNetwork:
         Takes a query network and computes distance to all
         networks within hypha
         """
-        g_nodes = set(g_query.vs['name'])
+        g_nodes = self.interactome.vs['name']#set(g_query.vs['name'])
+        q_nodes = [g_nodes[i] for i in g_query['vert']]
         net_dist = {}
         for pat, forest in self.forests.items():
-            net_dist[pat] = jaccard_distance(set(forest.vs['name']), g_nodes)
+            net_dist[pat] = jaccard_distance(set([g_nodes[i] for i in forest['vert']]),\
+                                             set(q_nodes))
         net_df = pd.DataFrame(net_dist.items(), columns=['net2', 'distance'])
         net_df['net1_type'] = 'forest'
         net_df['net2_type'] = 'forest'
@@ -397,7 +331,7 @@ class hyphalNetwork:
         computes distance between entry graph and communities in hypha
         """
         #print('Computing difference from graph to all communities')
-        g_nodes = set(g_query.vs['name'])
+        g_nodes = set([self.interactome.vs['name'][i] for i in g_query['vert']])#g_query.vs['name'])
         comm_dist = {}
         for comm, nodes in self.communities.items():
             comm_dist[comm] = jaccard_distance(set(nodes), g_nodes)
@@ -464,7 +398,7 @@ def make_graph_from_dict(gfile):
    Makes graph from dictionary of nodes and edges
     """
     print("Loading edge and node lists from dictionary")
-    gd = pickle.load(open(gfile,'rb'))
+    gd = pickle.load(open(gfile, 'rb'))
     return gd
 
 def load_from_file(filename):
@@ -513,12 +447,12 @@ def computeCommunityNMI(comm_dict1, comm_dict2):
     print(nmi)
     return 1-nmi
 
-def communityFromGraphFile(gfile):
+def communityFromGraph(ig):
     """
     Loads graph from edge list pKL file and calculates communities
     """
-    dfile = make_graph_from_dict(gfile)
-    ig = getIgraph(dfile)
+    #dfile = make_graph_from_dict(gfile)
+    #ig = pickle.load(open(dfile, 'rb'))#getIgraph(dfile)
     partition = la.find_partition(ig, la.ModularityVertexPartition)
     comm_dict = {}
     for p in range(len(partition)):

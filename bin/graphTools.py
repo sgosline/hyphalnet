@@ -31,6 +31,7 @@ def buildIgraphFromFile(fname, dest_dir):
     Builds igraph network from string file
     '''
     igg = ig.Graph.Read_Ncol(fname)
+    igg.es['cost'] = [1-e for e in tab.es['weight']]
     pickle.dump(igg, open(dest_dir+'/igraphPPI.pkl', "wb"))
     return igg
 
@@ -54,7 +55,7 @@ def buildPCSTDictFromFile(fname, dest_dir,igg):
         i1 = nodes.index(row[0])
         i2 = nodes.index(row[1])
         edges.append([i1,i2])
-    pcst_dict = {'edges':edges, 'nodes':nodes, 'edgeWeights':weights, 'cost':1-weights,'degree':deg}
+    pcst_dict = {'edges':edges, 'nodes':nodes, 'edgeWeights':weights, 'cost':1-weights, 'degree':deg}
 
     pickle.dump(pcst_dict, open(dest_dir+"/pcstDictPPI.pkl", "wb" ))
 
@@ -70,10 +71,10 @@ def write_to_file(tab, mapping):
 
 def main():
     parser = argparse.ArgumentParser(description="""Process various graph formats and store appropriately""")
-    parser.add_argument('--graphFile',dest='name',required=True,help='Path to file')
-    parser.add_argument('--graphSource',default='string',dest='graphType',help='Source of graph file. Currently only supports `string`')
-    parser.add_argument('--nodeMapping',dest='mapping',help='mapping file if needed')
-    parser.add_argument('--dest',dest='destDir',help='Destination directory to store pkl file')
+    parser.add_argument('--graphFile', dest='name',required=True,help='Path to file')
+    parser.add_argument('--graphSource', default='string',dest='graphType',help='Source of graph file. Currently only supports `string`')
+    parser.add_argument('--nodeMapping', dest='mapping',help='mapping file if needed')
+    parser.add_argument('--dest', dest='destDir',help='Destination directory to store pkl file')
     args = parser.parse_args()
 
     if args.graphType == 'string':
@@ -83,7 +84,7 @@ def main():
     fname=write_to_file(tab, mapping)
     buildNxFromFile(fname, args.destDir)
     ig=buildIgraphFromFile(fname, args.destDir)
-    buildPCSTDictFromFile(fname, args.destDir,ig)
+    buildPCSTDictFromFile(fname, args.destDir, ig)
 
 
 if __name__ == '__main__':

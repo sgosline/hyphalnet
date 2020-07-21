@@ -15,6 +15,7 @@ import hyphalnet.proteomics as prot
 import hyphalnet.hyphEnrich as hyEnrich
 import hyphalnet.hyphaeStats as hyStats
 import pandas as pd
+import pickle
 
 class kvdictAppendAction(argparse.Action):
     """
@@ -50,11 +51,10 @@ parser.add_argument('--fromFile',dest='fromFile', nargs=1,\
 parser.add_argument('--quantile',dest='qt',default=0.01,type=float,\
                     help='Threshold to select top proteins from each patient')
 
-gfile='../../data/pcstDictPPI.pkl'
+gfile='../../data/igraphPPI.pkl'
 
-def build_hyphae_from_data(qt):
-    """ Temp function to load data from local directory"""
-    ##this is the framework for the PDC data parser.
+
+def loadCancerData(qt):
     norms = prot.normals_from_manifest('data/PDC_biospecimen_manifest_07182020_151323.csv')
 
 #    bcData = prot.parsePDCfile('data/TCGA_Breast_BI_Proteome.itraq.tsv')
@@ -77,7 +77,7 @@ def build_hyphae_from_data(qt):
     for key,np in normPats.items():
         print(len(np), 'normals for', key)
 
-    g = hyp.make_graph_from_dict(gfile)
+
     namemapper = None #hyp.mapHGNCtoNetwork()
 
     #here we get the top most distinguished from normals
@@ -88,10 +88,15 @@ def build_hyphae_from_data(qt):
                 'luad': prot.getTumorNorm(lungData, normPats['luad'], namemapper, quantThresh=qt),
                 'coad': prot.getTumorNorm(colData, normPats['coad'], namemapper, quantThresh=qt),
                 'gbm': prot.getTumorNorm(gbmData, normPats['gbm'], namemapper, quantThresh=qt)}
+    return patDiffs
+
+def build_hyphae_from_data(qt,g):
+    """ Temp function to load data from local directory"""
+    ##this is the framework for the PDC data parser.
 
     #now we want to build network communities for each
     hyphae = dict()
-
+    patDiffs = loadCancerData(qt)
     beta=0.5
     for key, vals in patDiffs.items():
         this_hyp = hyphalNetwork(vals, g.copy())
@@ -113,8 +118,9 @@ def main():
     ncbi = pd.read_csv('../../data/gene_to_ncbi.txt', sep='\t', dtype={'NCBI Gene ID':str}).dropna()
     ncbi = dict(zip(ncbi['Approved symbol'], ncbi['NCBI Gene ID']))
 
+    g = pickle.load(open(gfile, 'rb'))#hyp.make_graph_from_dict(gfile)
     if args.fromFile is None:
-        hyphae = build_hyphae_from_data(args.qt)
+        hyphae = build_hyphae_from_data(args.qt, g)
     else:
         hyphae = loadFromFile(args.fromFile)
 
@@ -122,7 +128,7 @@ def main():
     if args.getDist:
         res = hyStats.compute_all_distances(hyphae)
         res.to_csv('panCancerDistances.csv')
-        nmi = hyStats.compute_all_nmi(hyphae, gfile)
+        nmi = hyStats.compute_all_nmi(hyphae, g)
         nmi.to_csv('panCancerNMI.csv')
 
     for key, this_hyp in hyphae.items():
