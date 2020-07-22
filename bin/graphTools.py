@@ -6,7 +6,7 @@ import pickle
 import argparse
 import sys
 import igraph as ig
-import networkx as nx
+#import networkx as nx
 
 def buildMappingFromStringFile(fname):
     '''
@@ -35,9 +35,9 @@ def buildIgraphFromFile(fname, dest_dir):
     pickle.dump(igg, open(dest_dir+'/igraphPPI.pkl', "wb"))
     return igg
 
-def buildNxFromFile(fname, dest_dir):
-    tnet = nx.readwrite.edgelist.read_weighted_edgelist(fname)
-    pickle.dump(tnet, open(dest_dir+'/networkPPI.pkl', "wb"))
+#def buildNxFromFile(fname, dest_dir):
+#    tnet = nx.readwrite.edgelist.read_weighted_edgelist(fname)
+#    pickle.dump(tnet, open(dest_dir+'/networkPPI.pkl', "wb"))
 
 
 def buildPCSTDictFromFile(fname, dest_dir,igg):
@@ -82,7 +82,7 @@ def main():
         mapping = buildMappingFromStringFile(args.mapping)
 
     fname=write_to_file(tab, mapping)
-    buildNxFromFile(fname, args.destDir)
+  #  buildNxFromFile(fname, args.destDir)
     ig=buildIgraphFromFile(fname, args.destDir)
     buildPCSTDictFromFile(fname, args.destDir, ig)
 
