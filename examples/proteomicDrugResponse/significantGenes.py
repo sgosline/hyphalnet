@@ -61,7 +61,7 @@ syn.login()
 data = syn.tableQuery("SELECT * FROM syn22172602").asDataFrame()
 
 
-#Convert any dataframe to nested dict
+#Convert any dataframe to nested dict/dictionary of dictionaries
 def nested_dict(df):
     #Check for number of columns
     if len(df.columns) == 1:
