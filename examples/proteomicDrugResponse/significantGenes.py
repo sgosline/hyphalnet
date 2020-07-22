@@ -8,7 +8,8 @@ Created on Mon Apr 13 20:05:29 2020
 
 import argparse
 import sys
-sys.path.insert(0, "../../")
+#SG: once you install the package this is unecessariy
+#sys.path.insert(0, "../../")
 
 
 import hyphalnet.hypha as hyp
@@ -48,13 +49,16 @@ parser = argparse.ArgumentParser(description="""Get data from the proteomic \
                                  data commons and build community networks""")
 parser.add_argument('--enrich', dest='doEnrich', action='store_true',\
                     default=False, help='Flag to do GO enrichment')
-parser.add_argument('--fromFile',dest='fromFile', nargs=1,\
+parser.add_argument('--fromFile', dest='fromFile', nargs=1,\
                     action=kvdictAppendAction,metavar='KEY=VALUE',\
                     help='Key/value params for extra files')
 
 
-gfile='../../data/pcstDictPPI.pkl'
-
+#SGgfile='../../data/pcstDictPPI.pkl'
+#I updated the code to use a different pkl file,
+#which you looad correctly in main but incorrectly in significant genes
+gfile = '../../data/igraphPPI.pkl'
+g = pickle.load(open(gfile, 'rb'))#hyp.make_graph_from_dict(gfile)
 
 syn = synapseclient.Synapse()
 syn.login()
@@ -65,11 +69,11 @@ data = syn.tableQuery("SELECT * FROM syn22172602").asDataFrame()
 def nested_dict(df):
     #Check for number of columns
     if len(df.columns) == 1:
-        if df.values.size == 1: 
+        if df.values.size == 1:
             return [df.values[0][0]]
         return df.values.squeeze().tolist()
     grouped = df.groupby(df.columns[0])
-    d = {k: nested_dict(g.iloc[:,1:]) 
+    d = {k: nested_dict(g.iloc[:,1:])
          for k,g in grouped}
     return d
 
@@ -79,19 +83,28 @@ def nested_dict(df):
 
 def significant_genes(data_frame, group, subgroup, value):
     data_frame['zscore'] = stats.zscore(data_frame[value])
-    significant = data[abs(data['zscore']) >= 2.58]
+    #SG
+    #here you reference `data` and not `data frame`
+    #significant = data[abs(data['zscore']) >= 2.58]
+    #also altered to remove absolute value
+    significant = data_frame[data_frame['zscore'] >= 2.58]
     #replaced with new function
-    gene_dictionary = nested_dict(significant[[group, subgroup, value]])
-    
-    g = hyp.make_graph_from_dict(gfile)
-    
+    #gene_dictionary = nested_dict(significant[[group, subgroup, value]])
+    #SG: updated this based on what i found on google....
+    gene_dictionary = (significant.groupby(group).apply(lambda x: dict(zip(x[subgroup], x[value]))).to_dict())
+    #SG This is causing issue, it's old code g = hyp.make_graph_from_dict(gfile)
+
     hyphae = dict()
     beta=0.5
-    for key, val in gene_dictionary.items():
-        this_hyp = hyphalNetwork(val, g.copy())
-        hyphae[key] = this_hyp
-        this_hyp._to_file(key+'_hypha.pkl')
-    print (hyphae)
+    #SG:
+    #this was the issue, it was an uncessary loop
+    #for key, val in gene_dictionary.items():
+    # hyphalNetwork is supposed to take a gene dictionary!
+    key = 'proteomics'
+    this_hyp = hyphalNetwork(gene_dictionary, g.copy())
+    hyphae[key] = this_hyp
+    this_hyp._to_file(key+'_hypha.pkl')
+    #print (hyphae)
     return hyphae
 
 
@@ -102,15 +115,19 @@ def loadFromFile(file_name_dict):
     return hyphae
 
 
+
 def main():
     args = parser.parse_args()
 
 
     # First read in NCBI mapping for GO enrichmnet
-    ncbi = pd.read_csv('../../data/gene_to_ncbi.txt', sep='\t', dtype={'NCBI Gene ID':str}).dropna()
-    ncbi = dict(zip(ncbi['Approved symbol'], ncbi['NCBI Gene ID']))
+    # SG new version makes this unecessary
+    #ncbi = pd.read_csv('../../data/gene_to_ncbi.txt', sep='\t', dtype={'NCBI Gene ID':str}).dropna()
+    #ncbi = dict(zip(ncbi['Approved symbol'], ncbi['NCBI Gene ID']))
 
-    g = pickle.load(open(gfile, 'rb'))#hyp.make_graph_from_dict(gfile)
+    #SG: moving this outside of main for now
+
+    #g = pickle.load(open(gfile, 'rb'))#hyp.make_graph_from_dict(gfile)
     if args.fromFile is None:
         hyphae = significant_genes(data, 'AML sample', 'Gene', 'LogFoldChange')
     else:
@@ -121,7 +138,7 @@ def main():
         this_hyp.node_stats().to_csv(key+'_nodelist.csv')
         if args.doEnrich:
             if len(this_hyp.forest_enrichment) == 0:
-                for_e = hyEnrich.go_enrich_forests(this_hyp, ncbi)
+                for_e = hyEnrich.go_enrich_forests(this_hyp)#SG, ncbi)
                 this_hyp.assign_enrichment(for_e, type='forest')
                 for_e.to_csv(key+'enrichedForestGoTerms.csv')
                 this_hyp._to_file(key+'_hypha.pkl')

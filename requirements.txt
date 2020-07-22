@@ -2,6 +2,5 @@ numpy==1.18.4
 leidenalg==0.7.0
 matplotlib==3.2.1
 goenrich==1.11
-networkx==2.1
 pandas==1.0.3
 python_igraph==0.8.2

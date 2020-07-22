@@ -53,6 +53,10 @@ def main():
     this_hyp._to_file(key+'_hypha.pkl')
     com_e.to_csv(key+'enrichedCommunityGOterms.csv')
     this_hyp.community_stats(prefix=key).to_csv(key+'_communityStats.csv')
+    res = hyStats.compute_all_distances({'mutations':this_hyp})
+    res.to_csv('panPDXDistances.csv')
+    nmi = hyStats.compute_all_nmi({'mutations': this_hyp}, g)
+    nmi.to_csv('panPDXNMI.csv')
 
 if __name__=='__main__':
     main()
