@@ -72,12 +72,12 @@ g = pickle.load(open(gfile, 'rb'))#hyp.make_graph_from_dict(gfile)
 def nested_dict(df):
     #Check for number of columns
     if len(df.columns) == 1:
-        if df.values.size == 1: 
+        if df.values.size == 1:
             return [df.values[0][0]]
         return df.values.squeeze().tolist()
     grouped = df.groupby(df.columns[0])
-    d = {k: nested_dict(g.iloc[:,1:]) 
-         for k,g in grouped}
+    d = {k: nested_dict(g.iloc[:,1:])
+         for k, g in grouped}
     return d
 
 def tumor_genes(data_frame, group, subgroup, value):
@@ -86,9 +86,10 @@ def tumor_genes(data_frame, group, subgroup, value):
 
 
     hyphae = dict()
-    beta=0.5
-    key = 'proteomics'
-    this_hyp = hyphalNetwork(mutation_dictionary, g.copy())
+    beta = .5
+    key = 'mutation'
+    #print(mutation_dictionary)
+    this_hyp = hyphalNetwork(mutation_dictionary, g.copy(), beta)
     hyphae[key] = this_hyp
     this_hyp._to_file(key+'_hypha.pkl')
     return hyphae

@@ -101,7 +101,7 @@ def significant_genes(data_frame, group, subgroup, value):
     #for key, val in gene_dictionary.items():
     # hyphalNetwork is supposed to take a gene dictionary!
     key = 'proteomics'
-    this_hyp = hyphalNetwork(gene_dictionary, g.copy())
+    this_hyp = hyphalNetwork(gene_dictionary, g.copy(), beta)
     hyphae[key] = this_hyp
     this_hyp._to_file(key+'_hypha.pkl')
     #print (hyphae)

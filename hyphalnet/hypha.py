@@ -38,10 +38,20 @@ class hyphalNetwork:
 
         self.node_counts = dict() #nodes found in forests and their counts
         for pat in list(proteinWeights.keys()):
-            print('Building tree for sample '+pat+' with',len(proteinWeights[pat]), 'proteins')
+            print('Building tree for sample '+pat+' with', len(proteinWeights[pat]), 'proteins')
             #            forest = self._getForest(list(proteinWeights[pat].items()))
-            fast_forest = self._getFastForest(proteinWeights[pat], beta, do_forest)
+            nbeta = beta
+            fast_forest = self._getFastForest(proteinWeights[pat], nbeta, do_forest)
+            while (len(fast_forest['vert']) < 2) and (nbeta < 1000):
+                print("Tree only has 1 node, trying to increase beta by factor of 10")
+                nbeta = nbeta*10.0
+                fast_forest = self._getFastForest(proteinWeights[pat], nbeta, do_forest)
+            if len(fast_forest['vert']) == 1:
+                print("Could not create tree for", pat)
+                next
+            print("Built tree of",len(fast_forest['vert']),'proteins at beta',nbeta)
             self.forests[pat] = fast_forest
+            #print(fast_forest['vert'])
             for ni in fast_forest['vert']:
                 #fast_forest.vs['name']:
                 #list(forest.nodes()):
@@ -127,7 +137,6 @@ class hyphalNetwork:
             if do_forest: ##TODO: move this to igraph!!!
                 edges = np.append(edges, [[dummy, ni]], axis=0)
                 cost = np.append(cost, w)
-
         if do_forest:
             print('Running pcst with', len(edges), 'edges compared to original', \
                   orig_edge_count, 'for', len(nodeweights), 'terminals')
@@ -235,7 +244,7 @@ class hyphalNetwork:
         Reads in a data frame containing the go/kegg enrichment and assigns each
         to a community or patient
         """
-        if type=='community':
+        if type == 'community':
             e_dict = enrich_df.groupby('Community')['name'].apply(list)
             self.community_enrichment = e_dict
         else:
@@ -250,7 +259,10 @@ class hyphalNetwork:
         """
         d_val = self.distVals
         closest = {}
-        for samp in self.forests.keys():
+        #print(self.forests)
+        for samp in self.proteins.keys():
+            #self.forests.keys():
+            #print(samp)
             res = d_val[(d_val.net1 == samp) & (d_val.net2_type == 'community')].nsmallest(1, 'distance').index[0]
             co = d_val.at[res, 'net2']
             #print(samp,co)
