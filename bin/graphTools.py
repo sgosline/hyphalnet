@@ -24,15 +24,15 @@ def getEdgeWeightsFromString(fname, colname='experimental'):
     red_tab = full_tab[['protein1', 'protein2', colname]]
     red_tab = red_tab[red_tab[colname] != 0]
     red_tab[colname] = [x/1000 for x in red_tab[colname]]
-    red_tab['weight'] = red_tab[colname]
+#    red_tab['weight'] = [x/1000 for x in red_tab[colname]]#red_tab[colname]
     return red_tab
 
-def buildIgraphFromFile(fname, dest_dir, tab):
+def buildIgraphFromFile(fname, dest_dir):
     '''
     Builds igraph network from string file
     '''
     igg = ig.Graph.Read_Ncol(fname)
-    igg.es['cost'] = [1-e for e in tab.es['weight']]
+    igg.es['cost'] = [1-e for e in igg.es['weight']]
     pickle.dump(igg, open(dest_dir+'/igraphPPI.pkl', "wb"))
     return igg
 
@@ -84,7 +84,7 @@ def main():
 
     fname = write_to_file(tab, mapping)
   #  buildNxFromFile(fname, args.destDir)
-    ig = buildIgraphFromFile(fname, args.destDir, tab)
+    ig = buildIgraphFromFile(fname, args.destDir)
     buildPCSTDictFromFile(fname, args.destDir, ig)
 
 
