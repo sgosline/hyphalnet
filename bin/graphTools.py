@@ -13,10 +13,10 @@ def buildMappingFromStringFile(fname):
     Builds a mapping dictionary from string file
     '''
     df = pd.read_csv(fname, sep='\t')
-    name_dict = dict(zip(df['protein_external_id'],df['preferred_name']))
+    name_dict = dict(zip(df['protein_external_id'], df['preferred_name']))
     return name_dict
 
-def getEdgeWeightsFromString(fname,colname='experimental'):
+def getEdgeWeightsFromString(fname, colname='experimental'):
     '''
     reads in edge weights from string file
     '''
@@ -24,6 +24,7 @@ def getEdgeWeightsFromString(fname,colname='experimental'):
     red_tab = full_tab[['protein1', 'protein2', colname]]
     red_tab = red_tab[red_tab[colname] != 0]
     red_tab[colname] = [x/1000 for x in red_tab[colname]]
+    red_tab['weight'] = red_tab[colname]
     return red_tab
 
 def buildIgraphFromFile(fname, dest_dir, tab):
@@ -40,7 +41,7 @@ def buildIgraphFromFile(fname, dest_dir, tab):
 #    pickle.dump(tnet, open(dest_dir+'/networkPPI.pkl', "wb"))
 
 
-def buildPCSTDictFromFile(fname, dest_dir,igg):
+def buildPCSTDictFromFile(fname, dest_dir, igg):
     '''
     creates a dictionary with the required input from pcst_fast package
     '''
@@ -71,10 +72,10 @@ def write_to_file(tab, mapping):
 
 def main():
     parser = argparse.ArgumentParser(description="""Process various graph formats and store appropriately""")
-    parser.add_argument('--graphFile', dest='name',required=True,help='Path to file')
-    parser.add_argument('--graphSource', default='string',dest='graphType',help='Source of graph file. Currently only supports `string`')
-    parser.add_argument('--nodeMapping', dest='mapping',help='mapping file if needed')
-    parser.add_argument('--dest', dest='destDir',help='Destination directory to store pkl file')
+    parser.add_argument('--graphFile', dest='name', required=True, help='Path to file')
+    parser.add_argument('--graphSource', default='string', dest='graphType', help='Source of graph file. Currently only supports `string`')
+    parser.add_argument('--nodeMapping', dest='mapping', help='mapping file if needed')
+    parser.add_argument('--dest', dest='destDir', help='Destination directory to store pkl file')
     args = parser.parse_args()
 
     if args.graphType == 'string':
