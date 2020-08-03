@@ -21,20 +21,22 @@ if(!require('stringr'))
     install.packages("stringr")
 if(!require(tidyr))
     install.packages('tidyr')
+if(!require(reticulate))
+  install.packages("reticulate")
+
 option_list = list(
     make_option(c("-d", "--distFile"), type="character", default=NULL,
                 help="Distance file name", metavar="character"),
     make_option(c("-c", "--commFile"), type='character', default=NULL,
-                help='Community stats file name', metavar='character'))
+                help='Community stats file name', metavar='character'),
+    make_option(c("s", "--synapseProj"), type='character', default=NULL,
+                help="Synapse id of project to store table in", metavar='character'))
    # make_option(c("-o", "--out"), type="character", default="out.txt",
    #             help="output file name [default= %default]", metavar="character")
    # ;
 
 opt_parser = OptionParser(option_list=option_list)
 opt = parse_args(opt_parser)
-
-
-
 
 
 #' Build basic predictor of multiple hyphae
@@ -288,6 +290,27 @@ getCommunityAndClosestsForests<-function(tumorType='brca',comm='0'){
   hasForest=comGo%>%group_by(name)%>%subset(networkType=='Patient')%>%summarize(numForests=n())
 }
 
+#' storeDistances
+#' @param distFile filepath
+#' @param synapseProj id of project
+storeDistances<-function(distFile,synapseProj){
+  require(dplyr)
+  require(reticulate)
+  syn=reticulate::import('synapseclient')
+  sync=syn$login()
+  tab<-read.csv(distFile,header=T,stringsAsFactors=F)
+  
+  mod.tab<-tab%>%rowwise()%>%
+    mutate(net1_name=stringr::str_c(hyp1,net1,sep='_'))%>%
+    mutate(net2_name=stringr::str_c(hyp2,net2,sep='_'))
+  
+  new.tab<-mod.tab%>%select(net1,net1_type,net2,net2_type,distance)
+  #table <- synapser::synBuildTable("HyphalNetwork Distances", synapseProj, mod.tab)
+  write.table(new.tab,file='tmp.csv',sep=',',row.names=FALSE,quote=FALSE)
+  tab<-syn$build_table('HyphalNetwork Distances',synapseProj,'tmp.csv')
+  sync$store(tab)  
+  
+}
                                         #goStats<<-getGoValues()
 
 minDists<<-assignClosestNodes(opt$distFile)
@@ -295,4 +318,5 @@ res=distanceRidgelines(opt$distFile, opt$commFile)
 #forStats() ##how well do the forests recapitulate biology?
 plotNetworkDistances(opt$distFile) #how well do the communities summarize the diversity of the forests?
 
-                                        #forestGOStats()##we get more function for patients, and it agrees with other stuff
+if(!is.null(opt$synapseProj))
+  storeDistances(opt$distFile,opt$synapseProj)

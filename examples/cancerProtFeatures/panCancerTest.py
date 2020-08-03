@@ -52,8 +52,8 @@ parser.add_argument('--quantile',dest='qt',default=0.01,type=float,\
                     help='Threshold to select top proteins from each patient')
 parser.add_argument('--sample', dest='sample', default=False, action='store_true',\
                     help='Use this flag if you want to sample 5 patients from each disease to test')
-
-gfile='../../data/igraphPPI.pkl'
+parser.add_argument('--graph', dest='graph', default='../../data/igraphPPI.pkl',\
+                help='Path to pickled igraph interactome')
 
 
 def loadCancerData(qt):
@@ -92,19 +92,19 @@ def loadCancerData(qt):
                 'gbm': prot.getTumorNorm(gbmData, normPats['gbm'], namemapper, quantThresh=qt)}
     return patDiffs
 
-def build_hyphae_from_data(qt,g,sample=False):
+def build_hyphae_from_data(qt, g, sample=False):
     """ Temp function to load data from local directory"""
     ##this is the framework for the PDC data parser.
 
     #now we want to build network communities for each
     hyphae = dict()
     patDiffs = loadCancerData(qt)
-    beta=0.5
+    beta = 0.5
     for key, vals in patDiffs.items():
         if sample:
             new_vals = {}
-            for v in random.sample(list(vals),5):
-                new_vals[v]= vals[v]
+            for v in random.sample(list(vals), 5):
+                new_vals[v] = vals[v]
             vals = new_vals
             print(len(vals))
         this_hyp = hyphalNetwork(vals, g.copy())
@@ -121,10 +121,10 @@ def loadFromFile(file_name_dict):
 
 def main():
     args = parser.parse_args()
-
+    gfile = args.graph
     g = pickle.load(open(gfile, 'rb'))#hyp.make_graph_from_dict(gfile)
     if args.fromFile is None:
-        hyphae = build_hyphae_from_data(args.qt, g,args.sample)
+        hyphae = build_hyphae_from_data(args.qt, g, args.sample)
     else:
         hyphae = loadFromFile(args.fromFile)
 

@@ -1,18 +1,18 @@
+"""
+Docstring goes here
+"""
+import pickle
+import os
 from igraph import *
 import leidenalg as la
 import pandas as pd
-
 from pcst_fast import *
 import numpy as np
-import pickle
 import matplotlib
-import os
 import matplotlib.pyplot as plot
 from sklearn.metrics import confusion_matrix, normalized_mutual_info_score
 
 matplotlib.rcParams['pdf.fonttype'] = 42
-
-#import plotly.express as px
 
 class hyphalNetwork:
     """
@@ -35,7 +35,7 @@ class hyphalNetwork:
         self.forests = dict()#forests
         self.community_enrichment = dict() # enriched terms
         self.forest_enrichment = dict() #enriched terms
-
+        self.orig_weights = proteinWeights
         self.node_counts = dict() #nodes found in forests and their counts
         for pat in list(proteinWeights.keys()):
             print('Building tree for sample '+pat+' with', len(proteinWeights[pat]), 'proteins')
@@ -49,7 +49,7 @@ class hyphalNetwork:
             if len(fast_forest['vert']) == 1:
                 print("Could not create tree for", pat)
                 next
-            print("Built tree of",len(fast_forest['vert']),'proteins at beta',nbeta)
+            print("Built tree of", len(fast_forest['vert']), 'proteins at beta', nbeta)
             self.forests[pat] = fast_forest
             #print(fast_forest['vert'])
             for ni in fast_forest['vert']:
@@ -61,7 +61,6 @@ class hyphalNetwork:
                 else:
                     self.node_counts[node] = 1
         self.communities, self.comm_graphs = self.runCommunityWithMultiplex()
-        #print(self.communities)
         ##now we create various statistics to compare communities
         #what is the distance (jaccard) between trees and communities?
         self.distVals = self.within_distances() #compute distances between forests
@@ -185,11 +184,42 @@ class hyphalNetwork:
         For each node computes how many trees it is in, and which community it is in
         """
         comms = []
-        for no, vals in self.node_counts.items():
-            ndict = {'Node': no, 'NumForests': vals}
-            for comm, nodelist in self.communities.items():
-                if no in nodelist:
-                    ndict['Community'] = comm
+        all_prots = set()
+        for samp, pweights in self.orig_weights.items():
+            all_prots.update(pweights.keys())
+            for node, val in pweights.items():
+                ndict = {'Sample': samp, 'Node': node, 'OrigWeight': val}
+                if node in self.node_counts.keys():
+                    ndict['NumForests'] = self.node_counts[node]
+                    if node in [self.interactome.vs['name'][i] for i in self.forests[samp]['vert']]:
+                        ndict['inForest'] = True
+                    else:
+                        ndict['inForest'] = False
+                    for comm, nodelist in self.communities.items():
+                        if node in nodelist:
+                            ndict['Community'] = comm
+                    if 'Community' not in ndict.keys():
+                        ndict['Community'] = None
+                else:
+                    ndict['inForest'] = False
+                    ndict['Community'] = None
+                    ndict['NumForests'] = None
+                comms.append(ndict)
+        other_nodes = set(self.node_counts.keys()).difference(all_prots)
+        print('Including', len(other_nodes), 'proteins that are not originally weighted')
+        for node in other_nodes:
+            for samp, forest in self.forests.items():
+                if node in [self.interactome.vs['name'][i] for i in forest['vert']]:
+                    ndict = {'Sample': samp, 'Node': node, 'OrigWeight': 0.0,\
+                             'inForest': True}
+                    ndict['NumForests'] = self.node_counts[node]
+                else:
+                    next
+                for comm, nodelist in self.communities.items():
+                    if node in nodelist:
+                        ndict['Community'] = comm
+                if 'Community' not in ndict.keys():
+                    ndict['Community'] = None
             comms.append(ndict)
         return pd.DataFrame(comms)
 
@@ -260,11 +290,11 @@ class hyphalNetwork:
         d_val = self.distVals
         closest = {}
         #print(self.forests)
-        for samp in self.proteins.keys():
+        for samp in self.forests.keys():
             #self.forests.keys():
             #print(samp)
             res = d_val[(d_val.net1 == samp) & (d_val.net2_type == 'community')].nsmallest(1, 'distance').index[0]
-            co = d_val.at[res, 'net2']
+            co = list(d_val.at[res, 'net2'])
             #print(samp,co)
             closest.update({samp:co[1]})
         return closest
@@ -374,6 +404,7 @@ class hyphalNetwork:
             net_hyph_dist['net1'] = pat
             distvals.append(net_net_dist)
             distvals.append(net_hyph_dist)
+       # print(distvals)
         return pd.concat(distvals)
 
     def intra_distance(self, hyp2):

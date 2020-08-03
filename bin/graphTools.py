@@ -26,7 +26,7 @@ def getEdgeWeightsFromString(fname,colname='experimental'):
     red_tab[colname] = [x/1000 for x in red_tab[colname]]
     return red_tab
 
-def buildIgraphFromFile(fname, dest_dir):
+def buildIgraphFromFile(fname, dest_dir, tab):
     '''
     Builds igraph network from string file
     '''
@@ -81,9 +81,9 @@ def main():
         tab = getEdgeWeightsFromString(args.name)
         mapping = buildMappingFromStringFile(args.mapping)
 
-    fname=write_to_file(tab, mapping)
+    fname = write_to_file(tab, mapping)
   #  buildNxFromFile(fname, args.destDir)
-    ig=buildIgraphFromFile(fname, args.destDir)
+    ig = buildIgraphFromFile(fname, args.destDir, tab)
     buildPCSTDictFromFile(fname, args.destDir, ig)
 
 

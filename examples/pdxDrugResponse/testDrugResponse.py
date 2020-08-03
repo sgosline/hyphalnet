@@ -1,5 +1,5 @@
 """
-EValuate the ability of hyphal networks to correlate with drug response
+Evaluate the ability of hyphal networks to correlate with drug response
 """
 
 
@@ -16,7 +16,8 @@ import pandas as pd
 import synapseclient as synapse
 
 parser = argparse.ArgumentParser(description="""Get data from mutations""")
-
+parser.add_argument('--graph', dest='graph', default='../../data/igraphPPI.pkl',\
+                help='Path to pickled igraph interactome')
 
 def getMutationalData():
     syn = synapse.login()
@@ -30,17 +31,13 @@ def getMutationalData():
 
 def main():
     args = parser.parse_args()
-    beta =0.5
+    beta = 0.5
     #get mutational data
     mvals = getMutationalData()
 
     ##load up interactome
-    gfile='../../data/igraphPPI.pkl'
-    g = pickle.load(open(gfile, 'rb'))#hyp.make_graph_from_dict(gfile)
-
-      # First read in NCBI mapping for GO enrichmnet
-    #ncbi = pd.read_csv('../../data/gene_to_ncbi.txt', sep='\t', dtype={'NCBI Gene ID':str}).dropna()
-    #ncbi = dict(zip(ncbi['Approved symbol'], ncbi['NCBI Gene ID']))
+    gfile = args.graph
+    g = pickle.load(open(gfile, 'rb'))
 
     this_hyp = hyphalNetwork(mvals, g)
     key = 'mpnstPDXmuts'

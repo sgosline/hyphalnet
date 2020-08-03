@@ -5,6 +5,7 @@ how the communities related to each other and the trees they are built from
 import hyphalnet.hypha as hyp
 import pandas as pd
 
+
 def compute_all_distances(hyp_dict):
     """
     Computes distances between all elements of hyphae in list

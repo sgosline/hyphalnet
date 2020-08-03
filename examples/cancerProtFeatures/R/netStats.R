@@ -339,6 +339,28 @@ getCommunityAndClosestsForests<-function(tumorType='brca',comm='0'){
   hasForest=comGo%>%group_by(name)%>%subset(networkType=='Patient')%>%summarize(numForests=n())
 }
 
+
+getAlluvialAcrossHyphae<-function(nodefiles=list(brca='brca0.01_nodelist.csv',
+                                       coad='coad0.01_nodelist.csv',
+                                       luad='luad0.01_nodelist.csv',
+                                       hcc='hcc0.01_nodelist.csv',
+                                       gbm='gbm0.01_nodelist.csv',
+                                       hnscc='hnscc0.01_nodelist.csv')){
+
+    library(ggalluvial)
+  all.comms<-do.call(rbind,lapply(names(nodefiles),function(x){
+    read.csv(nodefiles[[x]])%>%dplyr::select(Node,Community)%>%mutate(Hypha=x)}))
+  all.comms$Community<-as.factor(all.comms$Community)
+    p<-all.comms%>%#%>%subset(Gene%in%changing$Gene)%>%
+    ggplot(aes(x=Hypha,stratum=Community,alluvium=Node,fill=Community,label=Hypha))+
+    geom_flow(stat='alluvium',lode.guidance='frontback')+
+    geom_stratum()+
+   # ggtitle(paste("Changing",prefix,"proteins in",cl))+
+    theme_minimal()+
+    viridis::scale_fill_viridis(3,discrete=T)
+  
+}
+
 goStats<<-getGoValues()
 minDists<<-assignClosestNodes('panCancerDistances.csv')
 res=distanceRidgelines('panCancerDistances.csv')
