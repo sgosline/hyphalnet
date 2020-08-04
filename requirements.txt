@@ -1,3 +1,4 @@
+pcst_fast==1.0.7
 numpy==1.18.4
 leidenalg==0.7.0
 matplotlib==3.2.1
