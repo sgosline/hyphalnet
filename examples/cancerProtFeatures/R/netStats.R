@@ -361,10 +361,54 @@ getAlluvialAcrossHyphae<-function(nodefiles=list(brca='brca0.01_nodelist.csv',
   
 }
 
-goStats<<-getGoValues()
+#' getPanCanDistanceStats
+#' Evaluates the distances between individual trees and the samples in other hyphae
+#' @param fname fie name of distace csv
+getPanCanDistanceStats<-function(fname='panCancerDistances.csv'){
+  library(pheatmap)
+  library(ggplot2)
+  tab<-read.csv(fname)%>%subset(net2_type=='community')%>%select(-X)
+  
+  dtab<-tab%>%subset(hyp2=='panCan')%>%subset(hyp1!='panCan')
+  norms<-read.csv("data/PDC_biospecimen_manifest_07182020_151323.csv")$Aliquot.Submitter.ID
+ dmat<-dtab%>%select(net2,distance,net1)%>%distinct()%>%
+    tidyr::pivot_wider(values_from=distance,names_from=net2)%>%
+   subset(!net1%in%norms)%>%
+    tibble::column_to_rownames('net1')
+ 
+  annotes<-dtab%>%select(net1,disease="hyp1")%>%distinct()%>%
+    tibble::column_to_rownames('net1')
+  annotes$disease<-as.factor(as.character(annotes$disease))
+    pheatmap(dmat,annotation_row = annotes,clustering_distance_rows = 'correlation', 
+           clustering_distance_cols = 'correlation',clustering_method = 'ward.D2',
+           labels_row=rep("",nrow(dmat)),filename='panCancerDistanceClusters.pdf')
+  
+    
+    ##lets check to see that the communities can predict cancer
+    library(glmnet)
+  res<-cv.glmnet(x=as.matrix(dmat),y=as.factor(annotes[rownames(dmat),1]),family='multinomial')
+  res2<-glmnet(x=as.matrix(dmat),y=as.factor(annotes[rownames(dmat),1]),family='multinomial')
+    
+  comms<-lapply(res2$beta,function(x) {
+    vals<-x[,which(res$cvm==min(res$cvm))]
+    names(vals)[vals!=0]})
+  
+  ##plot confusion matrix
+  con<-confusion.glmnet(res,as.matrix(dmat),annotes[rownames(dmat),1],family='multinomial')
+  pheatmap(con,cluster_rows = F,cluster_cols = F,filename='confusionMatrix.pdf')
+  
+  #lastly plot distances based on distance to clsuteres
+  dists<-cmdscale(dist(dmat))
+  colnames(dists)<-c('Dim1',"Dim2")
+  ddf<-data.frame(dists,disease=annotes[rownames(dists),'disease'])
+  p<-ggplot(ddf,aes(x=Dim1,y=Dim2,color=disease))+geom_point()
+  ggsave('allPatientDistanceCluster.pdf',p)
+}
+#goStats<<-getGoValues()
+getPanCanDistanceStats()
 minDists<<-assignClosestNodes('panCancerDistances.csv')
 res=distanceRidgelines('panCancerDistances.csv')
 #forStats() ##how well do the forests recapitulate biology?
-plotNetworkDistances('panCancerDistances.csv') #how well do the communities summarize the diversity of the forests?
+#plotNetworkDistances('panCancerDistances.csv') #how well do the communities summarize the diversity of the forests?
 #forestGOStats()##we get more function for patients, and it agrees with other stuff
 

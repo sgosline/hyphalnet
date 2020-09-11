@@ -19,7 +19,8 @@ class hyphalNetwork:
     The hypha class represents a set of individual sample networks/graphs and
     creates the communities shared between each
     """
-    def __init__(self, proteinWeights, interactome, beta=1, g=3, do_forest=False):
+    def __init__(self, proteinWeights, interactome, beta=1, g=3, do_forest=False,\
+                 noComms=False):
         """
         Hypha class
         Based a dictionary of proteins with weights and an interactome,
@@ -60,14 +61,15 @@ class hyphalNetwork:
                     self.node_counts[node] += 1
                 else:
                     self.node_counts[node] = 1
-        self.communities, self.comm_graphs = self.runCommunityWithMultiplex()
-        ##now we create various statistics to compare communities
-        #what is the distance (jaccard) between trees and communities?
-        self.distVals = self.within_distances() #compute distances between forests
-        #what is the score of communities for each sample?
-        self.assignedCommunities = self.community_to_samples()
-        print('Created hypha across ', len(self.node_counts), 'nodes and',\
-              len(self.forests), 'forests')
+        if not noComms:
+            self.communities, self.comm_graphs = self.runCommunityWithMultiplex()
+            ##now we create various statistics to compare communities
+            #what is the distance (jaccard) between trees and communities?
+            self.distVals = self.within_distances() #compute distances between forests
+            #what is the score of communities for each sample?
+            self.assignedCommunities = self.community_to_samples()
+            print('Created hypha across ', len(self.node_counts), 'nodes and',\
+                  len(self.forests), 'forests')
 
     def _to_file(self, fname):
         """ enables saving to file"""

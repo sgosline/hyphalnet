@@ -28,10 +28,14 @@ readInAllFiles<-function(){
   dislist<-list(BRCA=processSingleFile('data/CPTAC2_Breast_Prospective_Collection_BI_Proteome.tmt10.tsv'),
                 LUAD=processSingleFile('data/CPTAC3_Lung_Adeno_Carcinoma_Proteome.tmt10.tsv'),
                 GBM = processSingleFile('data/CPTAC3_Glioblastoma_Multiforme_Proteome.tmt11.tsv'),
-                COAD = processSingleFile('data/CPTAC2_Colon_Prospective_Collection_PNNL_Proteome.tmt10.tsv'))
+                COAD = processSingleFile('data/CPTAC2_Colon_Prospective_Collection_PNNL_Proteome.tmt10.tsv'),
+                HNSCC = processSingleFile('data/CPTAC3_Head_and_Neck_Carcinoma_Proteome.tmt11.tsv'),
+                HCC = processSingleFile('data/Zhou_Liver_Cancer_Proteome.tmt11.tsv'))
   
-  normals = processSpecimenFile('data/PDC_biospecimen_manifest_05112020_184928.csv')
-  norm.names=list(BRCA='Breast Invasive Carcinoma',LUAD='Lung Adenocarcinoma',COAD='Colon Adenocarcinoma',
+  normals = processSpecimenFile('data/PDC_biospecimen_manifest_07182020_151323.csv')
+  norm.names=list(BRCA='Breast Invasive Carcinoma',LUAD='Lung Adenocarcinoma',
+                  COAD='Colon Adenocarcinoma',HCC='Hepatocellular Carcinoma ',
+                  HNSCC='Head and Neck Squamous Cell Carcinoma',
                   GBM = 'Other')
   
   distab <-do.call(rbind,lapply(names(dislist),function(x) mutate(dislist[[x]],disease=x)%>%mutate(isNorm=if_else(Patient%in%paste(normals[[norm.names[[x]]]],'Log Ratio'),TRUE,FALSE))))
@@ -39,4 +43,5 @@ readInAllFiles<-function(){
   distab<-subset(distab,!is.na(logratio))%>%
     subset(!Patient%in%c('POOL Log Ratio','Authority','Organism','Locus','Description','Chromosome'))%>%
     subset(!Gene%in%c('Mean','Median','StdDev'))
+  return(distab)
 }

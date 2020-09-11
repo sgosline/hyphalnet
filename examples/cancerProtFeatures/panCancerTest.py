@@ -54,6 +54,8 @@ parser.add_argument('--sample', dest='sample', default=False, action='store_true
                     help='Use this flag if you want to sample 5 patients from each disease to test')
 parser.add_argument('--graph', dest='graph', default='../../data/igraphPPI.pkl',\
                 help='Path to pickled igraph interactome')
+parser.add_argument('--getStats',dest='getStats',default=False,action='store_true',\
+                   help='Get node and community statistics')
 
 
 def loadCancerData(qt):
@@ -90,6 +92,11 @@ def loadCancerData(qt):
                 'luad': prot.getTumorNorm(lungData, normPats['luad'], namemapper, quantThresh=qt),
                 'coad': prot.getTumorNorm(colData, normPats['coad'], namemapper, quantThresh=qt),
                 'gbm': prot.getTumorNorm(gbmData, normPats['gbm'], namemapper, quantThresh=qt)}
+    pc = dict()
+    for key,val in patDiffs.items():
+        pc.update(val)
+    print("PanCan dictionary has",len(pc),'patients')
+    patDiffs['panCan'] = pc
     return patDiffs
 
 def build_hyphae_from_data(qt, g, sample=False):
@@ -107,6 +114,11 @@ def build_hyphae_from_data(qt, g, sample=False):
                 new_vals[v] = vals[v]
             vals = new_vals
             print(len(vals))
+        if len(vals) > 300:
+            new_vals = {}
+            for v in random.sample(list(vals),300):
+                new_vals[v] = vals[v]
+            vals = new_vals
         this_hyp = hyphalNetwork(vals, g.copy())
         hyphae[key+str(qt)] = this_hyp
         this_hyp._to_file(key+str(qt)+'_hypha.pkl')
@@ -149,8 +161,9 @@ def main():
                 this_hyp._to_file(key+'_hypha.pkl')
                 com_e.to_csv(key+'enrichedCommunityGOterms.csv')
             ##next: compare enrichment between patients mapped to communities
-        this_hyp.forest_stats().to_csv(key+'_TreeStats.csv')
-        this_hyp.community_stats(prefix=key).to_csv(key+'_communityStats.csv')
+        if args.getStats:
+            this_hyp.forest_stats().to_csv(key+'_TreeStats.csv')
+            this_hyp.community_stats(prefix=key).to_csv(key+'_communityStats.csv')
 
 if __name__ == '__main__':
     main()
