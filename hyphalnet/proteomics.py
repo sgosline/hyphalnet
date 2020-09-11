@@ -92,6 +92,8 @@ def getProtsByPatient(tdf, namemapper=None, column='logratio', quantThresh=0.01)
     return res
 
 
+
+
 def getTumorNorm(tdf, normSamps, namemapper=None, column='logratio', quantThresh=0.01, doAbs=False):
     """
     Gets per-patient tumor values compared to pooled normal
