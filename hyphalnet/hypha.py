@@ -159,11 +159,12 @@ class hyphalNetwork:
         for pat, vals in self.forests.items():
             all_nodes.update([self.interactome.vs['name'][i] for i in vals['vert']])
         print("Have", len(all_nodes), 'total nodes')
-        for_graph = self.interactome#.subgraph(all_nodes)
+        for_graph = self.interactome.copy()#.subgraph(all_nodes)
         for nx_g in self.forests.values(): ##i'm not convince the forests have the same node/edge indices
             tmp_g = for_graph.subgraph_edges(nx_g['edge'],\
                                              delete_vertices=False)#Graph()#nx_g.copy() ###this is apointer, make sur
             netlist.append(tmp_g)
+            print('Added network of',tmp_g.vs,'vertices and',tmp_g.es,'edges')
         [membership, improv] = la.find_partition_multiplex(netlist,\
                                                            #la.RBERVertexPartition)
                                                            la.ModularityVertexPartition)
