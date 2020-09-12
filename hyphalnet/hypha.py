@@ -164,7 +164,7 @@ class hyphalNetwork:
             tmp_g = for_graph.subgraph_edges(nx_g['edge'],\
                                              delete_vertices=False)#Graph()#nx_g.copy() ###this is apointer, make sur
             netlist.append(tmp_g)
-            print('Added network of',tmp_g.vs,'vertices and',tmp_g.es,'edges')
+            print('Added network of',len(tmp_g.vs),'vertices and',len(tmp_g.es),'edges')
         [membership, improv] = la.find_partition_multiplex(netlist,\
                                                            #la.RBERVertexPartition)
                                                            la.ModularityVertexPartition)
