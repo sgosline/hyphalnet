@@ -37,10 +37,14 @@ def main():
 
     ##load up interactome
     gfile = args.graph
+    ##TODO: replace this with Docker image call
     g = pickle.load(open(gfile, 'rb'))
-
-    this_hyp = hyphalNetwork(mvals, g)
     key = 'mpnstPDXmuts'
+    this_hyp = hyphalNetwork(mvals, g)
+    this_hyp._to_file(key+'_hypha.pkl')
+
+    ##read from file
+    ###this is all we need to do in a single eval, then we can do tests later
     this_hyp.node_stats().to_csv(key+'_nodelist.csv')
     for_e = hyEnrich.go_enrich_forests(this_hyp)
     this_hyp.assign_enrichment(for_e, type='forest')
