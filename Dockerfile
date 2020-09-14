@@ -17,6 +17,7 @@ COPY . hyphalnet
 WORKDIR hyphalnet
 RUN ls -la *
 RUN python setup.py install
+RUN pip install sklearn
 
 ##now get PPI network and create
 RUN mkdir data
