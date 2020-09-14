@@ -159,7 +159,7 @@ class hyphalNetwork:
         for pat, vals in self.forests.items():
             all_nodes.update([self.interactome.vs['name'][i] for i in vals['vert']])
         print("Have", len(all_nodes), 'total nodes')
-        for_graph = self.interactome.copy()#.subgraph(all_nodes)
+        for_graph = self.interactome#.copy()#.subgraph(all_nodes)
         for nx_g in self.forests.values(): ##i'm not convince the forests have the same node/edge indices
             tmp_g = for_graph.subgraph_edges(nx_g['edge'],\
                                              delete_vertices=False)#Graph()#nx_g.copy() ###this is apointer, make sur
