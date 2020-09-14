@@ -28,7 +28,7 @@ def main():
     mvals = getMutationalData().to_csv("mutData.csv")
 
     key = 'mpnstPDXmuts'
-    os.system('python3 ../../bin/createHyphaFromProts.py --output '+key+' --inputData mutData.csv --graph ../../data/igraphPPI.pkl')
+    os.system('docker run --volume $PWD:/tmp -ti hyphalnet --output '+key+' --inputData /tmp/mutData.csv')
 
 if __name__=='__main__':
     main()

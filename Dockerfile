@@ -1,23 +1,12 @@
 FROM python:3.7
 
 #RUN apt-get install -y net-tools\\\\\\\\\\\\\\
-#RUN apk update -qq && \
-#        apk add wget && \
-#        apk add libtool && \
-#        apk add m4 && \
-#        apk add autoconf &&\
-#        apk add automake && \
-#        apk add patch &&\
-#        apk add gcc &&\
-#        apk add g++
 RUN apt-get update -qq
 ##        && apt-get install -y wget
 
 COPY . hyphalnet
 WORKDIR hyphalnet
-RUN ls -la *
 RUN python setup.py install
-RUN pip install sklearn
 
 ##now get PPI network and create
 RUN mkdir data

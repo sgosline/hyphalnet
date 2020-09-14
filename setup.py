@@ -13,7 +13,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/sgosline/hyphalnet",
     packages=setuptools.find_packages(),
-    install_requires=['pcst_fast','numpy', 'pandas', 'matplotlib', 'goenrich', 'leidenalg', 'python_igraph'],
+    install_requires=['pcst_fast','numpy', 'pandas', 'matplotlib', 'goenrich', 'leidenalg==0.7.0','sklearn', 'python_igraph'],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
