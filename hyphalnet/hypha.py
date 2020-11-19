@@ -364,7 +364,7 @@ class hyphalNetwork:
             print("Couldn't create graph")
         return full_graph
 
-    def distance_to_networks(self, g_query):
+    def distance_to_networks(self, g_query, finished_pats=set(), jaccard=False):
         """
         Network distance helper function
         Takes a query network and computes distance to all
@@ -374,14 +374,20 @@ class hyphalNetwork:
         q_nodes = [g_nodes[i] for i in g_query['vert']]
         net_dist = {}
         for pat, forest in self.forests.items():
-            net_dist[pat] = jaccard_distance(set([g_nodes[i] for i in forest['vert']]),\
+            if pat in finished_pats:
+                continue
+            if jaccard:
+                net_dist[pat] = jaccard_distance(set([g_nodes[i] for i in forest['vert']]),\
                                              set(q_nodes))
+            else:
+                net_dist[pat] = self.shortest_path_dist(set([g_nodes[i] for i in forest['vert']]),\
+                                                   set(q_nodes))
         net_df = pd.DataFrame(net_dist.items(), columns=['net2', 'distance'])
         net_df['net1_type'] = 'forest'
         net_df['net2_type'] = 'forest'
         return net_df
 
-    def distance_to_communities(self, g_query):
+    def distance_to_communities(self, g_query, jaccard=False):
         """
         computes distance between entry graph and communities in hypha
         """
@@ -389,7 +395,10 @@ class hyphalNetwork:
         g_nodes = set([self.interactome.vs['name'][i] for i in g_query['vert']])#g_query.vs['name'])
         comm_dist = {}
         for comm, nodes in self.communities.items():
-            comm_dist[comm] = jaccard_distance(set(nodes), g_nodes)
+            if jaccard:
+                comm_dist[comm] = jaccard_distance(set(nodes), g_nodes)
+            else:
+                comm_dist[comm] = self.shortest_path_dist(set(nodes), g_nodes)
         comm_df = pd.DataFrame(comm_dist.items(), columns=['net2', 'distance'])
         comm_df['net2_type'] = 'community'
         comm_df['net1_type'] = 'forest'
@@ -399,8 +408,10 @@ class hyphalNetwork:
         """Compute distance between all forests within the hypha"""
         print("Computing differences between forests and communities")
         distvals = []
+        pats_completed=set() ##keep track of patients we've measured
         for pat, forest in self.forests.items():
-            net_net_dist = self.distance_to_networks(forest)
+            net_net_dist = self.distance_to_networks(forest,pats_completed)
+            pats_completed.add(pat)
             net_net_dist['net1'] = pat
             #now do distance to hypha
             net_hyph_dist = self.distance_to_communities(forest)
@@ -424,6 +435,20 @@ class hyphalNetwork:
             df_list.append(net_dist)
 #        for comm, nodelist in hyp2.communities.items(): TODO
         return pd.concat(df_list)
+
+    def shortest_path_dist(self, ns_1, ns_2):
+        """
+        computes all pairs shortest path between two node sets
+        """
+        print("getting shortest path")
+        u_size = len(ns_1.union(ns_2))
+        res = self.interactome.shortest_paths_dijkstra(source=ns_1,\
+                                                    target=ns_2,\
+                                                    weights='cost')
+        res = sum([sum(a) for a in res])/u_size
+        print(res)
+        return res
+
 
 def getIgraph(full_graph):
     """

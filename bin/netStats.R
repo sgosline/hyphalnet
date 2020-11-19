@@ -27,7 +27,7 @@ if(!require(reticulate))
 option_list = list(
     make_option(c("-d", "--distFile"), type="character", default=NULL,
                 help="Distance file name", metavar="character"),
-    make_option(c("-c", "--commFile"), type='character', default=NULL,
+    make_option(c("-c", "--clinicalData"), type='character', default=NULL,
                 help='Community stats file name', metavar='character'),
     make_option(c("s", "--synapseProj"), type='character', default=NULL,
                 help="Synapse id of project to store table in", metavar='character'))
@@ -60,60 +60,6 @@ assignClosestNodes<-function(communityDistanceFile){
 }
 
 
-getGoValues<-function(communityVals=list(luad='luad0.01enrichedCommunityGOterms.csv',
-                                        brca='brca0.01enrichedCommunityGOterms.csv',
-                                        gbm='gbm0.01enrichedCommunityGOterms.csv',
-                                        coad='coad0.01enrichedCommunityGOterms.csv'),
-                     forestVals=list(luad='luad0.01enrichedForestGoTerms.csv',
-                                     brca='brca0.01enrichedForestGoTerms.csv',
-                                     gbm='gbm0.01enrichedForestGoTerms.csv',
-                                     coad='coad0.01enrichedForestGoTerms.csv')){
-
-  commGo=do.call(rbind,lapply(names(communityVals),function(x){
-    print(x)
-    res<-read.csv2(communityVals[[x]],sep=',',header=T,stringsAsFactors=F)
-    res$disease=rep(x,nrow(res))
-    return(res)
-  }))%>%
-    subset(namespace='biological_process')%>%
-    select(term,q,name,Community,disease)%>%
-    tidyr::pivot_longer(Community,names_to='networkType',values_to='sample')
-
-  ##read in all enrichment files - those from individual forests, communities and actual diffex
-  forestGo=do.call(rbind,lapply(names(forestVals),function(x){
-    print(x)
-    res<-read.csv2(forestVals[[x]],sep=',',header=T,stringsAsFactors=F)
-    res$disease=rep(x,nrow(res))
-    return(res)
-  }))%>%
-    subset(namespace='biological_process')%>%
-    select(term,q,name,Patient,disease)%>%
-    tidyr::pivot_longer(Patient,names_to='networkType',values_to='sample')
-
-  return(rbind(commGo,forestGo))
-}
-
-compareGOtoDistance<-function(communityDistanceFile){
-
-   #process the distances
-  tab<-read.csv(communityDistanceFile,header=T,stringsAsFactors=F)
-
-  mod.tab<-tab%>%rowwise()%>%
-    mutate(net1_name=stringr::str_c(hyp1,net1,sep='_'))%>%
-    mutate(net2_name=stringr::str_c(hyp2,net2,sep='_'))
-
-  annotes<-mod.tab%>%
-    dplyr::select(net1_name,net2_name,net1_type,net2_type,hyp1,hyp2)%>%
-    distinct()
-
-  ###we can probably remove this or alter it once we fix code
-  red.annote<-annotes%>%
-    dplyr::select(sample='net2_name',graph='net2_type',disease='hyp2')%>%
-    distinct()
-
-  assigned.comm<-mod.tab%>%subset(net1_type=='forest')%>%subset(net2_type=='community')%>%group_by(net1,hyp1)%>%filter(distance==min(distance))
-
-}
 
 #' distanceRidglines - calculates distances to each community
 #' @param communityDistanceFile
