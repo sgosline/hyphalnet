@@ -11,7 +11,7 @@ To install the package, clone the repository.
 1. ``` git clone https://github.com/sgosline/hyphalnet.git```
 2. Then run: ```sudo python setup.py install```
 
-This will install the package and its files. 
+This will install the package and its files.
 
 ## Getting Started
 To run hyphalNet you need to download an interactome and create an `igraph` Graph and compress it using `pickle`. This script will do it for you.
@@ -25,13 +25,39 @@ python ./bin/graphTools.py --graphFile [stringfile] --graphSource=string --nodeM
 This will load up the interactomes in the correct format (for now we are working across 3 formats)
 
 
-## Cancer Proteomics
-We hypothesize that we can identify underlying patterns across patient cohorts in patient datasets from the [Proteomic Data Commons](https://pdc.cancer.gov/).
+## Cancer Signatures
+We have built a script that downloads data from the [CPTAC]() repositories using the Python package `cptac`. To construct cancer signatures from the available data.
 
-This approach can be described in more detail [here](examples/cancerProtFeatures) along with test cases that work on local files.
+To build these scripts, run the script
 
-## Mutational networks
-We are also evaluating the ability to identify mutational networks that are shared across patients or clinical samples. This approach will be described [here](examples/mutationDrugResponse).
+``` python
+python bin/buildCancerSigs.py --help
+```
+This will show the available options to build new cancer signatures.
 
-## Proteomics drug response
-Building networks out of proteomics data, we also hope to identify specific communties that give rise to changes in drug response.
+The output of this will be a hyphalNetwork object in `pkl` format that can be used to map to novel datasets.
+
+## Signature statistics
+To collect information about the signatures, particularly ahead of paper publication, we run the following script to collect gene enrichment statistics, and distance metrics within the cancer signature data itself. Some of these are more useful than others.
+
+### Network Mutual Information
+We wanted to show that the signatures we were getting were unique to the data collected. To do that we evaluated the newtork mutual information statistic. This probably does not need to be run more generally.
+
+``` python
+python bin/getSigNMI.py
+
+```
+
+### Signature gene enrichment
+We also wanted to capture tio biological activity of the underlying cancer signatures. This statistic _is_ of interest for others wanting to do more analysis downstream.
+
+``` python
+python bin/hyphEnrich.py
+```
+
+## Applying signature to new data
+Lastly we need to apply the signatures to novel datasets. This script expects a csv of proteomics measurements in tidied format.
+
+``` python
+python bin/mapSigsToData.py
+```

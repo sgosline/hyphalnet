@@ -19,8 +19,8 @@ class hyphalNetwork:
     The hypha class represents a set of individual sample networks/graphs and
     creates the communities shared between each
     """
-    def __init__(self, proteinWeights, interactome, beta=1, g=3, do_forest=False,\
-                 noComms=False):
+    def __init__(self, proteinWeights, interactome, beta=1, g=3, \
+                 treesOnly=False):
         """
         Hypha class
         Based a dictionary of proteins with weights and an interactome,
@@ -35,18 +35,18 @@ class hyphalNetwork:
 
         self.forests = dict()#forests
         self.community_enrichment = dict() # enriched terms
-        self.forest_enrichment = dict() #enriched terms
+
+        #self.forest_enrichment = dict() #DEPRECATE enriched terms
         self.orig_weights = proteinWeights
         self.node_counts = dict() #nodes found in forests and their counts
         for pat in list(proteinWeights.keys()):
             print('Building tree for sample '+pat+' with', len(proteinWeights[pat]), 'proteins')
-            #            forest = self._getForest(list(proteinWeights[pat].items()))
             nbeta = beta
-            fast_forest = self._getFastForest(proteinWeights[pat], nbeta, do_forest)
+            fast_forest = self._getFastForest(proteinWeights[pat], nbeta, do_forest=False)
             while (len(fast_forest['vert']) < 2) and (nbeta < 1000):
                 print("Tree only has 1 node, trying to increase beta by factor of 10")
                 nbeta = nbeta*10.0
-                fast_forest = self._getFastForest(proteinWeights[pat], nbeta, do_forest)
+                fast_forest = self._getFastForest(proteinWeights[pat], nbeta, do_forest=False)
             if len(fast_forest['vert']) == 1:
                 print("Could not create tree for", pat)
                 next
@@ -61,13 +61,15 @@ class hyphalNetwork:
                     self.node_counts[node] += 1
                 else:
                     self.node_counts[node] = 1
-        if not noComms:
+        self.distVals = self.network_distances()
+        if not treesOnly:
             self.communities, self.comm_graphs = self.runCommunityWithMultiplex()
             ##now we create various statistics to compare communities
             #what is the distance (jaccard) between trees and communities?
-            self.distVals = self.within_distances() #compute distances between forests
+            self.distVals = pd.concat([self.distVals,\
+                                        self.community_distances(self)]) #compute distances between forests
             #what is the score of communities for each sample?
-            self.assignedCommunities = self.community_to_samples()
+            #self.assignedCommunities = self.community_to_samples()
             print('Created hypha across ', len(self.node_counts), 'nodes and',\
                   len(self.forests), 'forests')
 
@@ -325,10 +327,10 @@ class hyphalNetwork:
         #    pat_df = protweights.merge(nodevals, on='Gene', how='outer').fillna(0, downcast='infer')
             pat_df = protweights
             pat_df['Patient'] = pat
-            if pat in self.forest_enrichment.keys():
-                pat_df['Enriched Terms'] = len(self.forest_enrichment[pat])
-            else:
-                pat_df['Enriched Terms'] = 0.0
+         #  if pat in self.forest_enrichment.keys():
+         #      pat_df['Enriched Terms'] = len(self.forest_enrichment[pat])
+         #  else:
+         #      pat_df['Enriched Terms'] = 0.0
             dflist.append(pat_df)
         full_df = pd.concat(dflist)
         return full_df
@@ -372,70 +374,86 @@ class hyphalNetwork:
         """
         g_nodes = self.interactome.vs['name']#set(g_query.vs['name'])
         q_nodes = [g_nodes[i] for i in g_query['vert']]
-        net_dist = {}
+        net_dist = {'net2':[],'minSP':[],'meanSP':[],'jaccard':[]}
+        #net_dist = []
         for pat, forest in self.forests.items():
             if pat in finished_pats:
                 continue
-            if jaccard:
-                net_dist[pat] = jaccard_distance(set([g_nodes[i] for i in forest['vert']]),\
-                                             set(q_nodes))
-            else:
-                net_dist[pat] = self.shortest_path_dist(set([g_nodes[i] for i in forest['vert']]),\
+            dist = self.shortest_path_dist(set([g_nodes[i] for i in forest['vert']]),\
                                                    set(q_nodes))
-        net_df = pd.DataFrame(net_dist.items(), columns=['net2', 'distance'])
+            net_dist['minSP'].append(dist['min'])
+            net_dist['meanSP'].append(dist['mean'])
+            net_dist['net2'].append(pat)
+            net_dist['jaccard'].append(jaccard_distance(set([g_nodes[i] for i in forest['vert']]),\
+                                             set(q_nodes)))
+        net_df = pd.DataFrame.from_dict(net_dist)
         net_df['net1_type'] = 'forest'
         net_df['net2_type'] = 'forest'
         return net_df
 
     def distance_to_communities(self, g_query, jaccard=False):
         """
-        computes distance between entry graph and communities in hypha
+        computes distance between communities in hypha and any nodes that are entered
         """
         #print('Computing difference from graph to all communities')
         g_nodes = set([self.interactome.vs['name'][i] for i in g_query['vert']])#g_query.vs['name'])
-        comm_dist = {}
+        comm_dist = {'net2':[],'minSP':[],'meanSP':[],'jaccard':[]}
         for comm, nodes in self.communities.items():
-            if jaccard:
-                comm_dist[comm] = jaccard_distance(set(nodes), g_nodes)
-            else:
-                comm_dist[comm] = self.shortest_path_dist(set(nodes), g_nodes)
-        comm_df = pd.DataFrame(comm_dist.items(), columns=['net2', 'distance'])
+            dist = self.shortest_path_dist(set(nodes), g_nodes)
+            comm_dist['net2'].append(comm)
+            comm_dist['minSP'].append(dist['min'])
+            comm_dist['meanSP'].append(dist['mean'])
+            comm_dist['jaccard'].append(jaccard_distance(set(nodes), g_nodes))
+        comm_df = pd.DataFrame.from_dict(comm_dist)
         comm_df['net2_type'] = 'community'
         comm_df['net1_type'] = 'forest'
         return comm_df
 
-    def within_distances(self):
+    def hypha_community_distances(self, target_comm):
+        ''''
+        Computes distances between all the trees in this hypha to the one
+        provided in the argument, can be used within
+        '''
+        distvals = []
+        for pat, forest in self.forests.items():
+            #now do distance to hypha
+            net_hyph_dist = target_comm.distance_to_communities(forest)
+            net_hyph_dist['net1'] = pat
+            distvals.append(net_hyph_dist)
+        return pd.concat(distvals)
+
+    def hypha_network_distances(self):
         """Compute distance between all forests within the hypha"""
-        print("Computing differences between forests and communities")
+        print("Computing differences across networks")
         distvals = []
         pats_completed=set() ##keep track of patients we've measured
         for pat, forest in self.forests.items():
-            net_net_dist = self.distance_to_networks(forest,pats_completed)
+            net_net_dist = self.distance_to_networks(forest, pats_completed)
+            rev_net_dist = net_net_dist.rename(columns={'net2':'net1'})
             pats_completed.add(pat)
             net_net_dist['net1'] = pat
+            rev_net_dist['net2'] = pat
             #now do distance to hypha
-            net_hyph_dist = self.distance_to_communities(forest)
-            net_hyph_dist['net1'] = pat
             distvals.append(net_net_dist)
-            distvals.append(net_hyph_dist)
+            distvals.append(rev_net_dist)
        # print(distvals)
         return pd.concat(distvals)
 
-    def intra_distance(self, hyp2):
-        """ Computes distance to other hypha"""
-        #first compute networks to other networks
-        df_list = []
-        for pat, forest in hyp2.forests.items():
-            #iterate through each element in the other hypha
-            net_dist = self.distance_to_networks(forest)
-            net_dist['net1'] = pat
-            comm_dist = self.distance_to_communities(forest)
-            comm_dist['net1'] = pat
-            df_list.append(comm_dist)
-            df_list.append(net_dist)
+#hoping to deprecate this since rewriting
+#    def intra_distance(self, hyp2):
+#        """ Computes distance to other hypha"""
+#        #first compute networks to other networks
+#        df_list = []
+#        for pat, forest in hyp2.forests.items():
+#            #iterate through each element in the other hypha
+#            net_dist = self.distance_to_networks(forest)
+#            net_dist['net1'] = pat
+#            comm_dist = self.distance_to_communities(forest)
+#            comm_dist['net1'] = pat
+#            df_list.append(comm_dist)
+#            df_list.append(net_dist)
 #        for comm, nodelist in hyp2.communities.items(): TODO
-        return pd.concat(df_list)
-
+#        return pd.concat(df_list)
     def shortest_path_dist(self, ns_1, ns_2):
         """
         computes all pairs shortest path between two node sets
@@ -445,9 +463,11 @@ class hyphalNetwork:
         res = self.interactome.shortest_paths_dijkstra(source=ns_1,\
                                                     target=ns_2,\
                                                     weights='cost')
-        res = sum([sum(a) for a in res])/u_size
-        print(res)
-        return res
+        #print(res)
+        mres = min([min(a) for a in res])#/u_size
+        nres = mean([mean(a) for a in res])
+        print(mres, nres)
+        return {'min':mres, 'mean':nres}
 
 
 def getIgraph(full_graph):
@@ -493,7 +513,9 @@ def jaccard_distance(ns_1, ns_2):
     u_size = len(ns_1.union(ns_2))
     if u_size == 0:
         return 1.0
-    return 1-len(ns_1.intersection(ns_2))/u_size
+    jres = 1-len(ns_1.intersection(ns_2))/u_size
+    print(jres)
+    return jres
 
 def map_hgnc_to_ensPep():
     tab = pd.read_csv('data/human.name_2_string.tsv', '\t', skiprows=[0], header=None)

@@ -58,10 +58,10 @@ def compute_all_nmi(hyp_dict, g):
         net_dist['hyp1'] = key1
         net_dist['hyp2'] = 'Full Network'
         df_list.append(net_dist)
-        for key2,hyp2 in hyp_dict.items():
+        for key2, hyp2 in hyp_dict.items():
             if key1 != key2:
-                net_dist={'NMI': hyp.computeCommunityNMI(hyp1.communities, hyp2.communities)}
-                net_dist['hyp1']=key1
-                net_dist['hyp2']=key2
+                net_dist = {'NMI': hyp.computeCommunityNMI(hyp1.communities, hyp2.communities)}
+                net_dist['hyp1'] = key1
+                net_dist['hyp2'] = key2
                 df_list.append(net_dist)
     return pd.DataFrame(df_list)

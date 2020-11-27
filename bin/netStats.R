@@ -64,49 +64,52 @@ assignClosestNodes<-function(communityDistanceFile){
 #' distanceRidglines - calculates distances to each community
 #' @param communityDistanceFile
 #'
-distanceRidgelines<-function(communityDistanceFile, commStats){
+distanceRidgelines<-function(communityDistanceFile, clinDat){
 
-  tab<-read.csv(communityDistanceFile,header=T,stringsAsFactors=F)
+  clin<-read.csv(clinDat)%>%dplyr::rename(net1='Patient_ID')
+  tab<-read.csv(communityDistanceFile,header=T,stringsAsFactors=F)%>%
+    left_join(clin,by='net1')
 
-  mod.tab<-tab%>%rowwise()%>%
-    mutate(net1_name=stringr::str_c(hyp1,net1,sep='_'))%>%
-    mutate(net2_name=stringr::str_c(hyp2,net2,sep='_'))
+#  mod.tab<-tab%>%rowwise()%>%
+#    mutate(net1_name=stringr::str_c(hyp1,net1,sep='_'))%>%
+#    mutate(net2_name=stringr::str_c(hyp2,net2,sep='_'))
 
-  annotes<-mod.tab%>%
-    dplyr::select(net1_name,net2_name,net1_type,net2_type,hyp1,hyp2)%>%
+
+  annotes<-tab%>%
+    dplyr::select(net1,net2,net2_type,CancerType)%>%
     distinct()
 
   ###we can probably remove this or alter it once we fix code
   red.annote<-annotes%>%
-    dplyr::select(sample='net2_name',graph='net2_type',disease='hyp2')%>%
+    dplyr::select(sample='net1',disease='CancerType')%>%
     distinct()
 
   ##remove this oncec we fix code
-  missed<-subset(mod.tab,net2_name%in%setdiff(annotes$net2_name,annotes$net1_name))%>%
-    dplyr::select(net1_name,net2_name,distance)%>%
-    dplyr::rename(net2_name='net1_name',net1_name='net2_name')
+#  missed<-subset(mod.tab,net2_name%in%setdiff(annotes$net2_name,annotes$net1_name))%>%
+#    dplyr::select(net1_name,net2_name,distance)%>%
+#    dplyr::rename(net2_name='net1_name',net1_name='net2_name')
 
   ##first do each disease
-  res=lapply(unique(mod.tab$hyp1),function(disease){
+  res=lapply(unique(tab$CancerType),function(disease){
 
-    red.tab<-subset(mod.tab,hyp1==disease)%>%
-      subset(hyp2==disease)%>%
+    red.tab<-subset(tab,net2_type=='community')%>%
+      subset(CancerType==disease)%>%
       rename(Community='net2')%>%
-      mutate(Similarity=1-distance)
+      mutate(Distance=distance)
   #  red.missed<-subset(red.tab,net2_name%in%setdiff(annotes$net2_name,annotes$net1_name))%>%
   #    dplyr::select(net1_name,net2_name,distance)%>%
   #    dplyr::rename(net2_name='net1_name',net1_name='net2_name')
     comm.tab<-subset(red.tab,net2_type=='community')
-    mean.dist<-comm.tab%>%group_by(Community)%>%summarize(meanSim=mean(Similarity))%>%
+    mean.dist<-comm.tab%>%group_by(Community)%>%summarize(meanSim=mean(Distance))%>%
       ungroup()%>%
       arrange(meanSim)
-    comStat<-read.csv(commStats)%>%
-        select(Community,Nodes)%>%
-      mutate(Community=as.character(Community))%>%
-      mutate(numProteins=as.numeric(Nodes))
-    comm.tab<-comm.tab%>%left_join(comStat)
+   # comStat<-read.csv(commStats)%>%
+   #     select(Community,Nodes)%>%
+  #    mutate(Community=as.character(Community))%>%
+   #   mutate(numProteins=as.numeric(Nodes))
+  #  comm.tab<-comm.tab%>%left_join(comStat)
     p<-ggplot(comm.tab,
-              aes(x=Similarity,y=Community,fill=numProteins))+
+              aes(x=Distance,y=Community))+#,fill=numProteins))+
       scale_y_discrete(limits = mean.dist$Community)+
               geom_density_ridges()+ggtitle('Community Forest Overlap')+scale_fill_viridis_b()
     print(p)
