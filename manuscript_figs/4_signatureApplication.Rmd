@@ -1,0 +1,40 @@
+---
+title: "Measuring an external dataset"
+author: "Sara Gosline"
+date: "11/27/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## NanoPots spatial proteomics data
+
+To determine the ability to use the network signatures to evaluate external, non-cancer datasets, we used our network signatures to improve the ability to interpret spatial proteomics data from Piehowski et al.
+
+We first used the image pseudocolors to map each voxel to one of the three identified tissue types. 
+
+```{r spatial proteomics scores}
+
+
+
+```
+
+## Mapping voxels to signatures
+
+Describe the python code required to map novel data to signatures
+
+```{r voxel signatures}
+
+
+```
+
+## Selecting meaningful signatures
+
+We used the jaccard distance scores to identify those network signatures that best correlated with each tissue type.
+
+```{r signatures}
+
+```

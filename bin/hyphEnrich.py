@@ -1,13 +1,7 @@
 import goenrich
 import numpy as np
 import pandas as pd
-import argparse
-import pickle
 import pkg_resources
-
-parser = argparse.ArgumentParser(description="""Helper script to compute go enrichment""")
-parser.add_argument('--refName',dest='refName',help='Name of description file')
-parser.add_argument('--hypha',dest='hyph',help='path to existing hyphalNetwork')
 
 def get_kegg_enrichment(genelist, background):
     """Get KEGG based pathway enrichment"""
@@ -118,15 +112,3 @@ def go_enrich_communities(hyp):
         except Exception as e:
             print('community', comm, e)
     return pd.concat(enrich)
-
-
-def main():
-    args = parser.parse_args()
-    phyph = pickle.load(open(args.hyph,'rb'))
-    ##compute go enrichment for communities
-    gores = go_enrich_communities(phyph)
-    gores.to_csv(args.refName+'_communityEnrichment.csv')
-
-
-if __name__=='__main__':
-    main()

@@ -1,0 +1,32 @@
+---
+title: "Signature Determination"
+author: "Sara Gosline"
+date: "11/27/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Signatures are distinct based on proteomics measurements
+
+We employ the louvain clustering on the multigraph to determine protein-specific signatures. We use network mutual information to show that these are distinct from clustering based on the original protein-protein interaction network
+
+
+```{r NMI analysis}
+summary(cars)
+```
+
+## Signature represent distinct biological pathways
+
+By design, the network clustering approach identifies network signatures that represent distinct biological pathways according to the Gene Ontology.
+
+
+```{r GO analysis, echo=FALSE}
+##load in go enrichment
+
+#get top few terms
+
+```
+

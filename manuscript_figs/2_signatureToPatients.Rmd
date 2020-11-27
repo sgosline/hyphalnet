@@ -1,0 +1,138 @@
+---
+title: "Mapping signatures to patient samples"
+author: "Sara Gosline"
+date: "11/26/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(cowplot)
+```
+
+To effectively use the network signatures to interpret other data, we needed to determine a metric by which the signatures could be mapped to unseen data. Our current approach uses the `PCST` algorithm to build individual patient networks and then compares various distance metrics to determine the best way to evaluate which signatures map to individual patients.  
+
+## Load network distances
+
+We first want to evaluate the network distances and compare the different metrics. Which distance is best? 
+
+```{r netdists}
+tab<-read.csv('bin/hyp2hypDistances_CPTACpancan_to_data.csv',header=T)
+mins = ggplot(tab,aes(x=meanSP,y=minSP,col=net2_type))+geom_point()
+jac  = ggplot(tab,aes(x=minSP,y=jaccard,col=net2_type))+geom_point()
+
+cowplot::plot_grid(plotlist=list(mins,jac))
+```
+
+
+## Read in clinical data
+
+To do any more analysis we need to read in clinical data.
+
+```{r clin data}
+clin <-read.csv('bin/clinicalData.csv',header=T)%>%
+  rename(net1='Patient_ID')%>%
+  mutate(gender=tolower(gender))
+
+nstage<-lapply(as.character(clin$stage),function(x) gsub('Stage ','',x,fixed=T))
+stage<-lapply(nstage,function(x) gsub('I',1,gsub('II',2,gsub('III',3,gsub('IV',4,x)))))
+
+clin$stage<-unlist(stage)
+
+clin$genstage<-unlist(lapply(clin$stage,function(x) gsub('3.','3',gsub('[A-C]*','',x))))
+
+
+full.tab<-tab%>%left_join(clin,by='net1')%>%
+  pivot_longer(cols=c(minSP,meanSP,jaccard),names_to='metric',values_to='distance')
+
+```
+## Plot Patients by distance
+So it seems that mean shortest path works the best, so now we can plot the distance between each tumor type. First we need to collect the clinical data. 
+
+```{r pressure, echo=FALSE}
+comm.dist<-full.tab%>%subset(net2_type=='community')
+
+
+ggplot(comm.dist,aes(x=net2,y=distance,fill=CancerType))+geom_boxplot()+facet_grid(metric~.)
+
+net.dist<-full.tab%>%subset(net2_type=='forest')
+
+#ggplot(net.dist,aes(x=net2,y=distance,fill=CancerType))+geom_boxplot()
+
+```
+
+The distribution of distances is slightly variable but kind of works. Why is 33 so close to other networks? 
+
+## Evaluating the distance metrics that best recapitulate original network distances
+
+Let's see how the patient clusters with different distance metrics. We'll start with UMAP and compare plots of patient samples with their own distance metrics.
+
+```{r pca}
+library(umap)
+
+plot_umap<-function(dist.df,clin){
+
+  
+  res<-lapply(unique(dist.df$metric),function(x){
+    mat<-subset(dist.df,metric==x)%>%
+      select(net1,net2,distance)%>%
+      distinct()%>%
+      pivot_wider(values_from=distance,names_from=net2)%>%
+      tibble::column_to_rownames('net1')
+    ud<-umap(mat)$layout
+    colnames(ud)<-c('d1','d2')
+
+    rdf<-ud%>%
+      as.data.frame()%>%
+      rownames_to_column('net1')%>%
+      left_join(clin, by='net1')
+
+    u=ggplot(rdf,aes(x=d1,y=d2,col=CancerType,shape=genstage))+geom_point()+ggtitle(paste(x,'distance'))
+    return(u)
+  })
+}
+
+```
+So let's compare how the networks plot via various distance metrics.
+
+```{r distcompare}
+
+net_plots=plot_umap(net.dist,clin)
+
+cowplot::plot_grid(plotlist=net_plots,nrow = 1)
+
+comm_plots=plot_umap(comm.dist,clin)
+
+cowplot::plot_grid(plotlist=comm_plots,nrow=1)
+
+```
+
+
+Both sort of agree that Jaccard is the best. Last we will plot the correlations between distances to ensure that the community based approach effectively reduces the dimensionality of the original data. We can also show the same data in heatmap form.
+
+```{r patient heatmap}
+library(pheatmap)
+
+annotes<-comm.dist%>%select(net1,gender,genstage,CancerType)%>%distinct()%>%
+  column_to_rownames('net1')
+
+jac_dmat<-net.dist%>%subset(metric=='jaccard')%>%
+  select(net1,net2,distance)%>%distinct()%>%
+  pivot_wider(values_from='distance',names_from='net2')%>%
+  column_to_rownames('net1')
+
+pheatmap(jac_dmat,clustering_method='ward.D2',clustering_distance_cols='correlation',annotation_row=annotes)
+
+jac_dmat<-comm.dist%>%subset(metric=='jaccard')%>%
+  select(net1,net2,distance)%>%distinct()%>%
+  pivot_wider(values_from='distance',names_from='net2')%>%
+  column_to_rownames('net1')
+
+pheatmap(jac_dmat,clustering_method='ward.D2',clustering_distance_cols='correlation', annotation_row=annotes)
+
+```
+So clearly we can't recapitulate original clustering with the signature comparison, but perhaps it is enough to do basic feature selection of each of the networks. Each network will be comprised of distinct communities that we can then evaluate independently. 
+
+##

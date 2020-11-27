@@ -27,7 +27,7 @@ def df2dict(df):
     ad = df.groupby('Sample')['Value'].apply(list)
     pdict = {}
     for samp, genes in genes.items():
-        pdict[samp] = dict(zip(genes,ad[samp]))
+        pdict[samp] = dict(zip(genes, ad[samp]))
     return pdict
 
 def main():

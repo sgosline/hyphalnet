@@ -1,8 +1,5 @@
 import pytest
-import igraph as ig
-
-from hyphalnet.hypha import hyphalNetwork
-
+import os
 
 def tests_create_mini_hyp():
     newg = ig.Graph()
