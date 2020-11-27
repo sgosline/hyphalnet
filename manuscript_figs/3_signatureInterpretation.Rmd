@@ -1,0 +1,44 @@
+---
+title: "Matching signature to phenotype"
+author: "Sara Gosline"
+date: "11/27/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+
+```
+
+To compare a signature for a particular patient population phenotype, we use the patient distance metrics defined in the previous section to identify specific networks that correlate with a phenotype of interest. 
+
+## Signature selection
+
+We can now use the network signatures to determine which signatures best correlate with a specific phenotype using a basic linear modeling approach. 
+
+We can start with identifying which signatures best predict cancer type. 
+
+```{r signature selection}
+
+```
+
+## Incorporating outside data
+
+Cancer is by definition a genetic disease, yet genetic mutations are often difficult to detect. By using these protein signatures we can evaluate broader phenotypes.
+
+
+```{r genetic mtuation data}
+
+##read in data here
+
+```
+
+## Genetic mutation signatures span cancer types
+
+We look for specific signatures and can stratify patients?
+
+## Mutation signatures also recapitulate known biology
+
+We can also recapitulate known biology
+
