@@ -15,10 +15,10 @@ import proteomicsData as pdat
 import re
 import numpy as np
 
-parser = argparse.ArgumentParser(description="""Build hyphal network signatures for pan-can data""")
+parser = argparse.ArgumentParser(description="""Collect pan can NMI values""")
 parser.add_argument('--refName', dest='refName', default='CPTACpancan')
-parser.add_argument('--quantile',dest='quant', default=0.01,  help='Threshold to use for top-expressed proteins')
-parser.add_arguemnt('--hypha',dest='hyph')
+parser.add_argument('--quantile', dest='quant', default=0.01,  help='Threshold to use for top-expressed proteins')
+parser.add_argument('--hypha', dest='hyph', help='Original pan can hypha')
 
 def main():
     args = parser.parse_args()
@@ -30,14 +30,16 @@ def main():
     ##first get proteomics measurements
     allDat = pdat.getCancerData(fdict, qval, byType=True)
 
-    ##make srue this file is built!
-    g = pickle.load(open('../odata/igraphPPI.pkl','rb'))
+    ##get hyphal network and graph
+    phyph = pickle.load(open(args.hyph, 'rb'))
+    g = phyph.interactome
+
     beta = .5
 
     #build hyphal network of network communities
-    phyph = pickle.load(open(args.hyph,'rb'))
-    hDict={'panCan': phyph}
-    for ct,dat in allDat.items():
+
+    hDict= {'panCan': phyph}
+    for ct, dat in allDat.items():
         hDict[ct] = hyphalNetwork(dat, g, beta)
 
     nmi = hyStats.compute_all_nmi(hDict, g)

@@ -7,6 +7,8 @@ and compute the GO enrichment
 import pandas as pd
 import os
 import cptac
+import numpy as np
+import re
 
 def getCombinedClinicalData(datdict):
     '''
@@ -55,6 +57,7 @@ def getCombinedMutationData(fdict):
     We will also need to collect mutation data for analysis this needs to be in
     a data frame that we can write out to CSV to join with other available data
     '''
+    return pd.DataFrame()
 
 def getCancerData(fdict, qThresh=0.01, byType=False):
 
@@ -64,7 +67,7 @@ def getCancerData(fdict, qThresh=0.01, byType=False):
     '''
     ##these are the primary dictionaries to return
     tumNormDiffs = {} #dictionary of top `qThresh`
-    for ct,dat in fdict.items():
+    for ct, dat in fdict.items():
         if byType:
             tumNormDiffs[ct] = {}
         print("Collecting "+ct+' tumor normal')
@@ -75,7 +78,7 @@ def getCancerData(fdict, qThresh=0.01, byType=False):
         tn = cdf['Sample_Tumor_Normal']
 
         prots = [a for a in cdf.columns if 'proteomics' in a[0]]
-        if len(prots)==0:
+        if len(prots) == 0:
             prots = [a for a in cdf.columns if 'proteomics' in a]
 
         norm_rows = cdf.loc[cdf['Sample_Tumor_Normal'] == 'Normal'][prots]
@@ -103,7 +106,7 @@ def getCancerData(fdict, qThresh=0.01, byType=False):
 
         test_count = 0 ##add for debugging
         for pval in pat_prots.keys():
-            if(test_count > 30):
+            if(test_count > 10):
                 continue
             test_count = test_count+1 #remove this once we have it working
             if byType:

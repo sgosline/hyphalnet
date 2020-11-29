@@ -3,24 +3,19 @@ This script uses the cptac data package and to build a reference set of signatur
 We also compute the distances between patients and the communities from the reference signatures
 and compute the GO enrichment
 '''
-
 import pandas as pd
 import os
-import hyphalnet.hypha as hyp
-from hyphalnet.hypha import hyphalNetwork
-import hyphalnet.hyphaeStats as hyStats
 import pickle
 import argparse
 import gzip
-import cptac
-import re
-import numpy as np
+import hyphalnet.hypha as hyp
+from hyphalnet.hypha import hyphalNetwork
 import proteomicsData as pdata
 
 parser = argparse.ArgumentParser(description="""Build hyphal network signatures for pan-can data""")
-parser.add_argument('--ref', dest='refid', default='syn22392951', help='Synapse id of reference pkl')
 parser.add_argument('--refName', dest='refName', default='CPTACpancan')
-parser.add_argument('--quantile',dest='quant', default=0.01,  help='Threshold to use for top-expressed proteins')
+parser.add_argument('--quantile', dest='quant', default=0.01, \
+                    help='Threshold to use for top-expressed proteins')
 
 def main():
     args = parser.parse_args()
@@ -37,18 +32,19 @@ def main():
     mutationData.to_csv('mutationData.csv')
 
     ##make srue this file is built!
-    g = pickle.load(open('../odata/igraphPPI.pkl','rb'))
+    g = pickle.load(open('data/igraphPPI.pkl', 'rb'))
     beta = .5
 
     #build hyphal network of network communities
     phyph = hyphalNetwork(allDat, g, beta)
-    phpyh._to_file(args.refName+'_hypNet.pkl')
+    phyph._to_file(args.refName+'_hypNet.pkl')
+
 
     #write out distances within communities
+    phyph._set_distances()
     res = phyph.distVals
     fname = args.refName+'_DistanceVals.csv'
     res.to_csv(fname)
-
 
 
 if __name__=='__main__':

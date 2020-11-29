@@ -11,8 +11,7 @@ import pickle
 import pandas as pd
 
 parser = argparse.ArgumentParser(description="""Get data from mutations""")
-parser.add_argument('--graph', dest='graph', default='./data/igraphPPI.pkl',\
-                help='Path to pickled igraph interactome')
+parser.add_argument('--hypha', dest='hyph', help='HyphalNetwork Signatures')
 parser.add_argument('--inputData', dest='df', \
                     help='Data frame with three columns: `Sample`, `Gene`, `Value`')
 parser.add_argument('--output', dest='output', default='hyphaOutput',\
@@ -38,11 +37,15 @@ def main():
     key = args.output
     mvals = df2dict(mdf)
     ##load up interactome
-    gfile = args.graph
-    ##TODO: replace this with Docker image call
-    g = pickle.load(open(gfile, 'rb'))
+    sigs = pickle.load(open(args.hyph, 'rb'))
+    g = sigs.interactome
+
     this_hyp = hyphalNetwork(mvals, g)
     this_hyp._to_file(key+'_hypha.pkl')
+
+    comm_dist = this_hyp.hypha_community_distances(sigs)
+    ##now compute distances between panCan sigs and these networks
+    comm_dist.to_csv()
 
 if __name__=='__main__':
     main()

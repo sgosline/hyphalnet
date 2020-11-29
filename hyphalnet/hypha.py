@@ -61,17 +61,24 @@ class hyphalNetwork:
                     self.node_counts[node] += 1
                 else:
                     self.node_counts[node] = 1
-        self.distVals = self.network_distances()
+        #self.distVals = self.hypha_network_distances()
         if not treesOnly:
             self.communities, self.comm_graphs = self.runCommunityWithMultiplex()
             ##now we create various statistics to compare communities
             #what is the distance (jaccard) between trees and communities?
-            self.distVals = pd.concat([self.distVals,\
-                                        self.community_distances(self)]) #compute distances between forests
+            #self.distVals = pd.concat([self.distVals,\
+            #                            self.hypha_community_distances(self)]) #compute distances between forests
             #what is the score of communities for each sample?
             #self.assignedCommunities = self.community_to_samples()
             print('Created hypha across ', len(self.node_counts), 'nodes and',\
                   len(self.forests), 'forests')
+
+    def _set_distances(self):
+        print("Now computing distances across networks")
+        nvals = self.hypha_network_distances()
+        print("Now computing distances across communities")
+        cvals = self.hypha_community_distances(self)
+        self.distVals = pd.concat([nvals, cvals])
 
     def _to_file(self, fname):
         """ enables saving to file"""
@@ -426,7 +433,7 @@ class hyphalNetwork:
         """Compute distance between all forests within the hypha"""
         print("Computing differences across networks")
         distvals = []
-        pats_completed=set() ##keep track of patients we've measured
+        pats_completed = set() ##keep track of patients we've measured
         for pat, forest in self.forests.items():
             net_net_dist = self.distance_to_networks(forest, pats_completed)
             rev_net_dist = net_net_dist.rename(columns={'net2':'net1'})

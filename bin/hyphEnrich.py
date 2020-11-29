@@ -2,6 +2,12 @@ import goenrich
 import numpy as np
 import pandas as pd
 import pkg_resources
+import argparse
+import pickle
+
+parser = argparse.ArgumentParser("""Command line tool to collect go enrichment stats""")
+parser.add_argument('--refName', dest='refName', default='CPTACpancan')
+parser.add_argument('--hypha', dest='hyph', help='Original pan can hypha')
 
 def get_kegg_enrichment(genelist, background):
     """Get KEGG based pathway enrichment"""
@@ -112,3 +118,18 @@ def go_enrich_communities(hyp):
         except Exception as e:
             print('community', comm, e)
     return pd.concat(enrich)
+
+
+def main():
+    '''
+    main method
+    '''
+
+    args = parser.parse_args()
+    #build hyphal network of network communities
+    phyph = pickle.load(open(args.hyph, 'rb'))
+    com_enrich = go_enrich_communities(phyph)
+    com_enrich.to_csv(args.refName+'_goEnrichment.csv')
+
+if __name__=='__main__':
+    main()
