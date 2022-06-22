@@ -1,5 +1,5 @@
 pcst_fast==1.0.7
-numpy==1.18.4
+numpy==1.22.0
 leidenalg==0.7.0
 matplotlib==3.2.1
 goenrich==1.11
